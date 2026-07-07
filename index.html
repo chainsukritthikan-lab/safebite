@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b101c">
+<title>SafeBite — Eat safe, worry less 🛡️</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root {
+    --bg: #0b101c;
+    --card: rgba(26, 34, 51, .85);
+    --card2: #232e47;
+    --card3: #2c3a59;
+    --accent: #4ade80;
+    --accent2: #22d3ee;
+    --danger: #f87171;
+    --warn: #fbbf24;
+    --text: #eef2f9;
+    --muted: #8b96ab;
+    --radius: 18px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'Noto Sans Thai', sans-serif;
+    background: var(--bg);
+    background-image:
+      radial-gradient(700px 340px at 15% -5%, rgba(74, 222, 128, .15), transparent 70%),
+      radial-gradient(560px 320px at 95% 8%, rgba(34, 211, 238, .11), transparent 70%);
+    background-attachment: fixed;
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 48px;
+  }
+  .container { max-width: 560px; margin: 0 auto; padding: 16px; }
+
+  /* top bar */
+  .topbar { display: flex; justify-content: flex-end; padding-top: 10px; }
+  .lang-toggle {
+    background: var(--card2); border: 1px solid rgba(255,255,255,.08);
+    color: var(--text); border-radius: 999px; padding: 7px 14px;
+    cursor: pointer; font-family: inherit; font-size: .85rem;
+  }
+
+  header { text-align: center; padding: 10px 16px 6px; }
+  .logo {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 2rem; font-weight: 800; letter-spacing: -.5px;
+  }
+  .logo .shield { font-size: 2.1rem; filter: drop-shadow(0 0 14px rgba(74,222,128,.55)); }
+  .logo span.b { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  header p { color: var(--muted); font-size: .93rem; margin-top: 6px; }
+
+  /* stats */
+  .stats { display: flex; gap: 10px; margin-top: 18px; }
+  .stat {
+    flex: 1; background: var(--card); border: 1px solid rgba(255,255,255,.06);
+    border-radius: 14px; padding: 12px; text-align: center;
+  }
+  .stat .num { font-size: 1.5rem; font-weight: 800; }
+  .stat.green .num { color: var(--accent); }
+  .stat.red .num { color: var(--danger); }
+  .stat .lbl { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+
+  .card {
+    background: var(--card);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-top: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  }
+  .card h2 { font-size: 1.05rem; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+  .step-num {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #0b101c;
+    width: 26px; height: 26px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: .85rem; font-weight: 800; flex-shrink: 0;
+  }
+
+  /* profiles */
+  .profiles { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .profile {
+    background: var(--card2); border: 2px solid transparent; color: var(--text);
+    padding: 8px 15px; border-radius: 999px; cursor: pointer;
+    font-size: .88rem; font-family: inherit; transition: all .15s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .profile.on { border-color: var(--accent2); background: rgba(34,211,238,.12); color: var(--accent2); }
+  .profile .x { font-size: .72rem; opacity: .7; }
+  .profile .x:hover { opacity: 1; color: var(--danger); }
+  .profile.add-p { border: 1px dashed rgba(139,150,171,.5); color: var(--muted); }
+
+  /* allergy chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: var(--card2); border: 2px solid transparent; color: var(--text);
+    padding: 9px 15px; border-radius: 999px; cursor: pointer;
+    font-size: .9rem; font-family: inherit; transition: all .15s; user-select: none;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip:hover { transform: translateY(-1px); }
+  .chip.on {
+    border-color: var(--accent);
+    background: rgba(74, 222, 128, .13);
+    color: var(--accent);
+    box-shadow: 0 0 10px rgba(74,222,128,.15);
+  }
+  .chip .x { font-size: .75rem; opacity: .7; margin-left: 2px; padding: 0 3px; }
+  .chip .x:hover { opacity: 1; color: var(--danger); }
+
+  .add-row { display: flex; gap: 8px; margin-top: 12px; }
+  .add-row input { flex: 1; margin-bottom: 0; }
+  .add-row button {
+    padding: 0 18px; border-radius: 10px;
+    background: var(--card2); color: var(--accent);
+    font-size: 1.2rem; font-weight: 700; cursor: pointer;
+    border: 1px dashed rgba(74,222,128,.4);
+  }
+
+  /* tabs */
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tab {
+    flex: 1; padding: 11px 6px; border-radius: 11px;
+    background: var(--card2); border: none; color: var(--muted);
+    cursor: pointer; font-size: .85rem; font-family: inherit; transition: all .15s;
+  }
+  .tab.active {
+    background: linear-gradient(135deg, var(--accent), #34d399);
+    color: #0b101c; font-weight: 700;
+  }
+
+  .btn {
+    width: 100%; padding: 14px; border: none; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), #34d399);
+    color: #0b101c;
+    font-size: 1rem; font-weight: 700; cursor: pointer; font-family: inherit;
+    transition: transform .1s;
+  }
+  .btn.secondary { background: var(--card2); color: var(--text); }
+  .btn:active { transform: scale(.98); }
+
+  #reader { border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+  #reader video { border-radius: 12px; }
+
+  textarea, input[type=text] {
+    width: 100%; background: var(--card2); border: 1px solid #33405c;
+    border-radius: 10px; color: var(--text); padding: 12px 14px;
+    font-family: inherit; font-size: .95rem; margin-bottom: 10px;
+    outline: none; transition: border-color .15s;
+  }
+  textarea:focus, input[type=text]:focus { border-color: var(--accent); }
+  textarea { min-height: 110px; resize: vertical; }
+
+  /* search results */
+  .search-results { margin-top: 4px; }
+  .sr-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card2); border-radius: 12px; padding: 10px 12px;
+    margin-bottom: 8px; cursor: pointer; transition: all .12s;
+    border: 1px solid transparent;
+  }
+  .sr-item:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .sr-item img { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; background: #fff; flex-shrink: 0; }
+  .sr-item .noimg {
+    width: 44px; height: 44px; border-radius: 8px; background: var(--card3);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .sr-item .sr-name { font-size: .9rem; font-weight: 600; }
+  .sr-item .sr-brand { font-size: .78rem; color: var(--muted); }
+
+  /* result */
+  .result { display: none; margin-top: 16px; border-radius: var(--radius); padding: 22px; text-align: center; animation: pop .3s ease; }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .result.danger { display: block; background: rgba(248, 113, 113, .12); border: 2px solid var(--danger); }
+  .result.safe { display: block; background: rgba(74, 222, 128, .1); border: 2px solid var(--accent); }
+  .result.warn { display: block; background: rgba(251, 191, 36, .12); border: 2px solid var(--warn); }
+  .result.unknown { display: block; background: rgba(139, 150, 171, .12); border: 2px solid var(--muted); }
+  .result .big { font-size: 2.8rem; }
+  .result h3 { margin: 8px 0 4px; font-size: 1.35rem; }
+  .result.danger h3 { color: var(--danger); }
+  .result.safe h3 { color: var(--accent); }
+  .result.warn h3 { color: var(--warn); }
+  .result.unknown h3 { color: var(--muted); }
+  .result p { color: var(--muted); font-size: .9rem; }
+  .found-list { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .found-list span {
+    background: rgba(248, 113, 113, .18); color: var(--danger);
+    padding: 6px 13px; border-radius: 999px; font-size: .85rem; font-weight: 600;
+  }
+  .found-list.traces span { background: rgba(251, 191, 36, .15); color: var(--warn); }
+
+  .product-box {
+    margin-top: 14px; display: flex; align-items: center; gap: 12px;
+    background: rgba(0,0,0,.2); border-radius: 12px; padding: 10px 14px;
+    text-align: left;
+  }
+  .product-box img { width: 54px; height: 54px; object-fit: contain; border-radius: 8px; background: #fff; flex-shrink: 0; }
+  .product-box .pname { font-size: .95rem; font-weight: 600; color: var(--text); }
+  .product-box .pbrand { font-size: .8rem; color: var(--muted); }
+  .nutri {
+    display: inline-block; margin-top: 4px; font-size: .7rem; font-weight: 800;
+    padding: 2px 9px; border-radius: 6px; color: #fff; letter-spacing: .5px;
+  }
+  .nutri.a { background: #038141; } .nutri.b { background: #85bb2f; }
+  .nutri.c { background: #fecb02; color: #333; } .nutri.d { background: #ee8100; }
+  .nutri.e { background: #e63e11; }
+
+  .matched-text {
+    margin-top: 14px; background: rgba(0,0,0,.2); border-radius: 12px;
+    padding: 12px 14px; font-size: .85rem; color: var(--muted);
+    text-align: left; line-height: 1.7; max-height: 130px; overflow-y: auto;
+  }
+  .matched-text mark {
+    background: rgba(248,113,113,.35); color: #fecaca;
+    padding: 1px 5px; border-radius: 5px; font-weight: 700;
+  }
+
+  /* history */
+  .history-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 4px; border-bottom: 1px solid rgba(255,255,255,.05);
+    font-size: .88rem;
+  }
+  .history-item.clickable { cursor: pointer; }
+  .history-item.clickable:hover .hname { color: var(--accent); }
+  .history-item:last-child { border-bottom: none; }
+  .history-item .badge { font-size: 1.1rem; flex-shrink: 0; }
+  .history-item .hname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .12s; }
+  .history-item .htime { color: var(--muted); font-size: .75rem; flex-shrink: 0; }
+  .history-empty { color: var(--muted); font-size: .85rem; text-align: center; padding: 8px; }
+  .clear-history {
+    background: none; border: none; color: var(--muted); font-size: .78rem;
+    cursor: pointer; font-family: inherit; margin-left: auto;
+  }
+  .clear-history:hover { color: var(--danger); }
+
+  .disclaimer {
+    margin-top: 22px; font-size: .78rem; color: var(--muted);
+    text-align: center; line-height: 1.7; padding: 0 10px;
+  }
+  .loading { display: none; text-align: center; padding: 18px; color: var(--muted); }
+  .spinner {
+    width: 30px; height: 30px; border: 3px solid var(--card2);
+    border-top-color: var(--accent); border-radius: 50%;
+    margin: 0 auto 8px; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <button class="lang-toggle" id="langBtn">🇹🇭 ภาษาไทย</button>
+  </div>
+  <header>
+    <div class="logo"><span class="shield">🛡️</span>Safe<span class="b">Bite</span></div>
+    <p data-i18n="tagline">Scan food. Spot your allergens. Eat with confidence.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="num" id="statChecks">0</div><div class="lbl" data-i18n="statChecks">foods checked</div></div>
+    <div class="stat red"><div class="num" id="statDangers">0</div><div class="lbl" data-i18n="statDangers">dangers caught</div></div>
+    <div class="stat green"><div class="num" id="statSafe">0</div><div class="lbl" data-i18n="statSafe">safe results</div></div>
+  </div>
+
+  <!-- STEP 1: profile + allergies -->
+  <div class="card">
+    <h2><span class="step-num">1</span> <span data-i18n="step1">Who's eating? Pick their allergies</span></h2>
+    <div class="profiles" id="profiles"></div>
+    <div class="chips" id="chips"></div>
+    <div class="add-row">
+      <input type="text" id="customInput" data-i18n-ph="customPh" placeholder="Allergic to something else? Type it — e.g. strawberry">
+      <button id="addCustomBtn" title="Add">＋</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: check food -->
+  <div class="card">
+    <h2><span class="step-num">2</span> <span data-i18n="step2">Check the food</span></h2>
+    <div class="tabs">
+      <button class="tab active" data-mode="scan">📷 <span data-i18n="tabScan">Scan barcode</span></button>
+      <button class="tab" data-mode="search">🔎 <span data-i18n="tabSearch">Search name</span></button>
+      <button class="tab" data-mode="text">📝 <span data-i18n="tabText">Ingredients</span></button>
+    </div>
+
+    <div id="scanPane">
+      <div id="reader"></div>
+      <button class="btn" id="scanBtn" data-i18n="openCam">📷 Open camera to scan</button>
+      <div style="margin-top:10px">
+        <input type="text" id="barcodeInput" data-i18n-ph="barcodePh" placeholder="Or type the barcode number, e.g. 3017620422003" inputmode="numeric">
+        <button class="btn secondary" id="lookupBtn" data-i18n="lookup">🔍 Look up barcode</button>
+      </div>
+    </div>
+
+    <div id="searchPane" style="display:none">
+      <input type="text" id="searchInput" data-i18n-ph="searchPh" placeholder="Type a product name, e.g. Oreo, Nutella, Lays...">
+      <button class="btn" id="searchBtn" data-i18n="searchBtn">🔎 Search product</button>
+      <div class="search-results" id="searchResults" style="margin-top:12px"></div>
+    </div>
+
+    <div id="textPane" style="display:none">
+      <textarea id="ingredientsInput" data-i18n-ph="ingredientsPh" placeholder="Paste or type the ingredients from the food label here — Thai or English both work..."></textarea>
+      <button class="btn" id="checkTextBtn" data-i18n="checkNow">✅ Check now</button>
+    </div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <span data-i18n="loading">Looking up product...</span>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <!-- history -->
+  <div class="card">
+    <h2>🕘 <span data-i18n="history">Recent checks</span> <button class="clear-history" id="clearHistoryBtn" data-i18n="clear">clear</button></h2>
+    <div id="historyList"></div>
+  </div>
+
+  <p class="disclaimer" data-i18n="disclaimer">
+    ⚠️ SafeBite is a helper tool, not medical advice. Data comes from the Open Food Facts community database and may be incomplete.
+    Always read the real label, and see a doctor for serious allergies.
+  </p>
+</div>
+
+<script>
+// ================= i18n =================
+const T = {
+  en: {
+    tagline: 'Scan food. Spot your allergens. Eat with confidence.',
+    statChecks: 'foods checked', statDangers: 'dangers caught', statSafe: 'safe results',
+    step1: "Who's eating? Pick their allergies",
+    step2: 'Check the food',
+    tabScan: 'Scan barcode', tabSearch: 'Search name', tabText: 'Ingredients',
+    openCam: '📷 Open camera to scan', closeCam: '⏹ Stop camera',
+    lookup: '🔍 Look up barcode',
+    searchBtn: '🔎 Search product', checkNow: '✅ Check now',
+    customPh: 'Allergic to something else? Type it — e.g. strawberry',
+    barcodePh: 'Or type the barcode number, e.g. 3017620422003',
+    searchPh: 'Type a product name, e.g. Oreo, Nutella, Lays...',
+    ingredientsPh: 'Paste or type the ingredients from the food label here — Thai or English both work...',
+    loading: 'Looking up product...',
+    history: 'Recent checks', clear: 'clear',
+    historyEmpty: 'No checks yet — try scanning something!',
+    disclaimer: '⚠️ SafeBite is a helper tool, not medical advice. Data comes from the Open Food Facts community database and may be incomplete. Always read the real label, and see a doctor for serious allergies.',
+    dangerTitle: 'DANGER — do not eat!', dangerDesc: 'This food contains allergens for {name}:',
+    warnTitle: 'Careful — possible traces', warnDesc: 'The label says it MAY contain traces of:',
+    safeTitle: 'No allergens found', safeDesc: "Looks safe for {name} — but always double-check the real label!",
+    noDataTitle: 'No ingredient data', noDataDesc: 'This product has no ingredient info in the database. Please read the real label.',
+    notFoundTitle: 'Product not found', notFoundDesc: 'Barcode {code} is not in the database. Try the "Ingredients" tab instead.',
+    noNetTitle: 'Connection failed', noNetDesc: 'Check your internet and try again, or use the "Ingredients" tab.',
+    noAllergyTitle: 'No allergies selected', noAllergyDesc: 'Pick the allergies in step 1 first!',
+    noTextTitle: 'No ingredients entered', noTextDesc: 'Paste or type the ingredients from the label first.',
+    noResultsTitle: 'Nothing found', noResultsDesc: 'No products matched "{q}". Try another name.',
+    camFailTitle: "Camera won't open", camFailDesc: 'Allow camera access, or type the barcode / ingredients instead.',
+    textCheck: 'Ingredient text check', unknownProduct: 'Unknown product',
+    me: 'Me', addProfile: '＋ Add person', profileNamePrompt: "Person's name? (e.g. Mom, Dad, Kid)",
+    nutriScore: 'Nutri-Score',
+  },
+  th: {
+    tagline: 'เช็คอาหารก่อนกิน — ปลอดภัยจากอาหารที่แพ้',
+    statChecks: 'เช็คไปแล้ว', statDangers: 'กันอันตรายได้', statSafe: 'ผ่านปลอดภัย',
+    step1: 'ใครกิน? เลือกสิ่งที่แพ้',
+    step2: 'เช็คอาหาร',
+    tabScan: 'สแกนบาร์โค้ด', tabSearch: 'ค้นหาชื่อ', tabText: 'ส่วนผสม',
+    openCam: '📷 เปิดกล้องสแกน', closeCam: '⏹ ปิดกล้อง',
+    lookup: '🔍 ค้นหาจากเลขบาร์โค้ด',
+    searchBtn: '🔎 ค้นหาสินค้า', checkNow: '✅ เช็คเลย',
+    customPh: 'แพ้อย่างอื่น? พิมพ์เพิ่มเอง เช่น สตรอเบอร์รี่',
+    barcodePh: 'หรือพิมพ์เลขบาร์โค้ดเอง เช่น 3017620422003',
+    searchPh: 'พิมพ์ชื่อสินค้า เช่น Oreo, Nutella, เลย์...',
+    ingredientsPh: 'วางหรือพิมพ์ส่วนผสมจากฉลากอาหารที่นี่ ภาษาไทยหรืออังกฤษก็ได้...',
+    loading: 'กำลังค้นหาข้อมูลสินค้า...',
+    history: 'ประวัติการเช็คล่าสุด', clear: 'ล้าง',
+    historyEmpty: 'ยังไม่มีประวัติ — ลองเช็คอาหารดูสิ!',
+    disclaimer: '⚠️ แอปนี้เป็นเครื่องมือช่วยเบื้องต้นเท่านั้น ไม่ใช่คำแนะนำทางการแพทย์ ข้อมูลมาจากฐานข้อมูล Open Food Facts ซึ่งอาจไม่ครบถ้วน กรุณาอ่านฉลากจริงทุกครั้ง และปรึกษาแพทย์หากมีอาการแพ้รุนแรง',
+    dangerTitle: 'อันตราย! ไม่ควรกิน', dangerDesc: 'อาหารนี้มีสิ่งที่ {name} แพ้:',
+    warnTitle: 'ระวัง! อาจมีปนเปื้อน', warnDesc: 'ฉลากระบุว่า "อาจมี" สิ่งที่แพ้ปนเปื้อนจากโรงงาน:',
+    safeTitle: 'ไม่พบสิ่งที่แพ้', safeDesc: 'ดูปลอดภัยสำหรับ {name} — แต่อย่าลืมอ่านฉลากจริงเพื่อความชัวร์!',
+    noDataTitle: 'ไม่มีข้อมูลส่วนผสม', noDataDesc: 'สินค้านี้ไม่มีข้อมูลส่วนผสมในฐานข้อมูล กรุณาอ่านฉลากจริง',
+    notFoundTitle: 'ไม่พบสินค้านี้', notFoundDesc: 'ไม่มีบาร์โค้ด {code} ในฐานข้อมูล ลองใช้แท็บ "ส่วนผสม" แทน',
+    noNetTitle: 'เชื่อมต่อไม่ได้', noNetDesc: 'เช็คอินเทอร์เน็ตแล้วลองใหม่ หรือใช้แท็บ "ส่วนผสม" แทน',
+    noAllergyTitle: 'ยังไม่ได้เลือกสิ่งที่แพ้', noAllergyDesc: 'กรุณาเลือกสิ่งที่แพ้ในข้อ 1 ก่อนนะ',
+    noTextTitle: 'ยังไม่ได้ใส่ส่วนผสม', noTextDesc: 'พิมพ์หรือวางส่วนผสมจากฉลากก่อนนะ',
+    noResultsTitle: 'ไม่พบสินค้า', noResultsDesc: 'ไม่มีสินค้าที่ตรงกับ "{q}" ลองชื่ออื่นดูนะ',
+    camFailTitle: 'เปิดกล้องไม่ได้', camFailDesc: 'กรุณาอนุญาตให้ใช้กล้อง หรือพิมพ์เลขบาร์โค้ด / ส่วนผสมแทน',
+    textCheck: 'เช็คจากส่วนผสม', unknownProduct: 'ไม่ทราบชื่อสินค้า',
+    me: 'ฉัน', addProfile: '＋ เพิ่มคน', profileNamePrompt: 'ชื่อคนนี้? (เช่น แม่, พ่อ, ลูก)',
+    nutriScore: 'Nutri-Score',
+  },
+};
+let lang = localStorage.getItem('sb_lang') || 'en';
+const t = (key, vars = {}) => (T[lang][key] || key).replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  document.getElementById('langBtn').textContent = lang === 'en' ? '🇹🇭 ภาษาไทย' : '🇬🇧 English';
+  renderChips(); renderProfiles(); renderHistory();
+}
+document.getElementById('langBtn').onclick = () => {
+  lang = lang === 'en' ? 'th' : 'en';
+  localStorage.setItem('sb_lang', lang);
+  applyLang();
+};
+
+// ================= allergen database (Thai + English keywords) =================
+const ALLERGENS = [
+  { id: 'peanut',    en: '🥜 Peanut',        th: '🥜 ถั่วลิสง',        tags: ['peanuts'],           words: ['ถั่วลิสง', 'peanut', 'groundnut', 'arachide'] },
+  { id: 'treenut',   en: '🌰 Tree nuts',     th: '🌰 ถั่วเปลือกแข็ง',  tags: ['nuts'],              words: ['อัลมอนด์', 'เม็ดมะม่วง', 'วอลนัท', 'แมคคาเดเมีย', 'พิสตาชิโอ', 'เฮเซลนัท', 'almond', 'cashew', 'walnut', 'macadamia', 'pistachio', 'hazelnut', 'pecan', 'tree nut'] },
+  { id: 'milk',      en: '🥛 Milk / Dairy',  th: '🥛 นม',              tags: ['milk'],              words: ['นม', 'เนย', 'ชีส', 'ครีม', 'เวย์', 'เคซีน', 'โยเกิร์ต', 'milk', 'butter', 'cheese', 'cream', 'whey', 'casein', 'yogurt', 'lactose', 'dairy'] },
+  { id: 'egg',       en: '🥚 Egg',           th: '🥚 ไข่',             tags: ['eggs'],              words: ['ไข่', 'egg', 'albumin', 'mayonnaise', 'มายองเนส'] },
+  { id: 'wheat',     en: '🌾 Wheat / Gluten', th: '🌾 แป้งสาลี/กลูเตน', tags: ['gluten'],            words: ['แป้งสาลี', 'ข้าวสาลี', 'กลูเตน', 'ข้าวบาร์เลย์', 'มอลต์', 'wheat', 'gluten', 'barley', 'rye', 'malt', 'flour'] },
+  { id: 'soy',       en: '🫘 Soy',           th: '🫘 ถั่วเหลือง',       tags: ['soybeans'],          words: ['ถั่วเหลือง', 'ซีอิ๊ว', 'เต้าเจี้ยว', 'เต้าหู้', 'เลซิติน', 'soy', 'soya', 'soybean', 'tofu', 'lecithin', 'edamame'] },
+  { id: 'fish',      en: '🐟 Fish',          th: '🐟 ปลา',             tags: ['fish'],              words: ['ปลา', 'น้ำปลา', 'ปลาร้า', 'fish', 'anchovy', 'tuna', 'salmon', 'cod', 'sardine'] },
+  { id: 'shellfish', en: '🦐 Shellfish',     th: '🦐 กุ้ง/ปู/หอย',      tags: ['crustaceans', 'molluscs'], words: ['กุ้ง', 'ปู', 'หอย', 'ปลาหมึก', 'กะปิ', 'shrimp', 'prawn', 'crab', 'lobster', 'oyster', 'squid', 'mussel', 'clam', 'scallop', 'shellfish', 'crustacean'] },
+  { id: 'sesame',    en: '⚪ Sesame',        th: '⚪ งา',              tags: ['sesame-seeds'],      words: ['งา', 'น้ำมันงา', 'sesame', 'tahini'] },
+];
+
+// ================= profiles (family members) =================
+// each profile: { name, allergies: [ids], custom: [words] }
+let profiles = JSON.parse(localStorage.getItem('sb_profiles') || 'null') || [{ name: null, allergies: [], custom: [] }]; // name null = "Me"
+let activeP = Math.min(parseInt(localStorage.getItem('sb_activeP') || '0', 10), profiles.length - 1);
+const P = () => profiles[activeP];
+
+function saveState() {
+  localStorage.setItem('sb_profiles', JSON.stringify(profiles));
+  localStorage.setItem('sb_activeP', String(activeP));
+}
+
+function profileName(p) { return p.name || t('me'); }
+
+function renderProfiles() {
+  const el = document.getElementById('profiles');
+  el.innerHTML = '';
+  profiles.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.className = 'profile' + (i === activeP ? ' on' : '');
+    b.innerHTML = `👤 ${profileName(p)}${i > 0 ? ' <span class="x" title="remove">✕</span>' : ''}`;
+    b.onclick = (e) => {
+      if (e.target.classList.contains('x')) {
+        profiles.splice(i, 1);
+        if (activeP >= profiles.length) activeP = profiles.length - 1;
+        saveState(); renderProfiles(); renderChips();
+        return;
+      }
+      activeP = i;
+      saveState(); renderProfiles(); renderChips();
+    };
+    el.appendChild(b);
+  });
+  const add = document.createElement('button');
+  add.className = 'profile add-p';
+  add.textContent = t('addProfile');
+  add.onclick = () => {
+    const name = prompt(t('profileNamePrompt'));
+    if (!name || !name.trim()) return;
+    profiles.push({ name: name.trim(), allergies: [], custom: [] });
+    activeP = profiles.length - 1;
+    saveState(); renderProfiles(); renderChips();
+  };
+  el.appendChild(add);
+}
+
+// ================= allergy chips =================
+function allAllergens() {
+  return [
+    ...ALLERGENS.map(a => ({ ...a, label: a[lang] })),
+    ...P().custom.map(w => ({ id: 'custom:' + w, label: '⚠️ ' + w, tags: [], words: [w], custom: true })),
+  ];
+}
+
+function renderChips() {
+  const el = document.getElementById('chips');
+  el.innerHTML = '';
+  const sel = new Set(P().allergies);
+  allAllergens().forEach(a => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (sel.has(a.id) ? ' on' : '');
+    b.innerHTML = a.label + (a.custom ? ' <span class="x" title="remove">✕</span>' : '');
+    b.onclick = (e) => {
+      if (a.custom && e.target.classList.contains('x')) {
+        P().custom = P().custom.filter(w => w !== a.words[0]);
+        P().allergies = P().allergies.filter(id => id !== a.id);
+        saveState(); renderChips();
+        return;
+      }
+      if (sel.has(a.id)) P().allergies = P().allergies.filter(id => id !== a.id);
+      else P().allergies.push(a.id);
+      saveState(); renderChips();
+    };
+    el.appendChild(b);
+  });
+}
+
+document.getElementById('addCustomBtn').onclick = addCustom;
+document.getElementById('customInput').addEventListener('keydown', e => { if (e.key === 'Enter') addCustom(); });
+function addCustom() {
+  const inp = document.getElementById('customInput');
+  const w = inp.value.trim();
+  if (!w) return;
+  if (!P().custom.includes(w)) {
+    P().custom.push(w);
+    P().allergies.push('custom:' + w);
+    saveState(); renderChips();
+  }
+  inp.value = '';
+}
+
+// ================= tabs =================
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    tab.classList.add('active');
+    ['scan', 'search', 'text'].forEach(m => {
+      document.getElementById(m + 'Pane').style.display = tab.dataset.mode === m ? 'block' : 'none';
+    });
+  };
+});
+
+// ================= core check logic =================
+function checkText(text, offTags) {
+  text = (text || '').toLowerCase();
+  offTags = (offTags || []).map(x => x.toLowerCase());
+  const sel = new Set(P().allergies);
+  const hits = [], matchedWords = [];
+  for (const a of allAllergens()) {
+    if (!sel.has(a.id)) continue;
+    const tagHit = a.tags.some(tag => offTags.some(x => x.includes(tag)));
+    const wordMatches = a.words.filter(w => text.includes(w.toLowerCase()));
+    if (tagHit || wordMatches.length) {
+      hits.push(a.label);
+      matchedWords.push(...wordMatches);
+    }
+  }
+  return { hits, matchedWords };
+}
+
+function highlight(text, words) {
+  if (!text || !words.length) return '';
+  let html = text.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+  [...new Set(words)].sort((a, b) => b.length - a.length).forEach(w => {
+    const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    html = html.replace(new RegExp(esc, 'gi'), m => `\x00${m}\x01`);
+  });
+  return html.replace(/\x00/g, '<mark>').replace(/\x01/g, '</mark>');
+}
+
+function showResult(type, title, desc, opts = {}) {
+  const r = document.getElementById('result');
+  r.className = 'result ' + type;
+  const icons = { danger: '🚫', safe: '✅', warn: '⚠️', unknown: '❓' };
+  let html = `
+    <div class="big">${icons[type]}</div>
+    <h3>${title}</h3>
+    <p>${desc}</p>`;
+  if (opts.hits && opts.hits.length) {
+    html += `<div class="found-list${opts.traces ? ' traces' : ''}">${opts.hits.map(h => `<span>${h}</span>`).join('')}</div>`;
+  }
+  if (opts.product) {
+    const ns = (opts.product.nutriscore || '').toLowerCase();
+    html += `<div class="product-box">
+      ${opts.product.img ? `<img src="${opts.product.img}" alt="">` : ''}
+      <div>
+        <div class="pname">📦 ${opts.product.name}</div>
+        ${opts.product.brand ? `<div class="pbrand">${opts.product.brand}</div>` : ''}
+        ${'abcde'.includes(ns) && ns ? `<span class="nutri ${ns}">${t('nutriScore')} ${ns.toUpperCase()}</span>` : ''}
+      </div>
+    </div>`;
+  }
+  if (opts.highlightedText) {
+    html += `<div class="matched-text">${opts.highlightedText}</div>`;
+  }
+  r.innerHTML = html;
+  r.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function analyze(ingredientsText, offTags, tracesTags, product, barcode) {
+  if (P().allergies.length === 0) {
+    showResult('unknown', t('noAllergyTitle'), t('noAllergyDesc'));
+    return;
+  }
+  const name = profileName(P());
+  const main = checkText(ingredientsText, offTags);
+  const traces = checkText('', tracesTags);
+  const pname = product ? product.name : t('textCheck');
+
+  if (main.hits.length > 0) {
+    showResult('danger', t('dangerTitle'), t('dangerDesc', { name }), {
+      hits: main.hits, product,
+      highlightedText: highlight(ingredientsText, main.matchedWords),
+    });
+    addHistory('🚫', pname, barcode); bumpStats('danger');
+  } else if (traces.hits.length > 0) {
+    showResult('warn', t('warnTitle'), t('warnDesc'), { hits: traces.hits, traces: true, product });
+    addHistory('⚠️', pname, barcode); bumpStats('danger');
+  } else if (!ingredientsText && (!offTags || offTags.length === 0)) {
+    showResult('unknown', t('noDataTitle'), t('noDataDesc'), { product });
+    addHistory('❓', pname, barcode); bumpStats('none');
+  } else {
+    showResult('safe', t('safeTitle'), t('safeDesc', { name }), { product });
+    addHistory('✅', pname, barcode); bumpStats('safe');
+  }
+}
+
+// ================= stats =================
+let stats = JSON.parse(localStorage.getItem('sb_stats') || '{"checks":0,"dangers":0,"safe":0}');
+function bumpStats(kind) {
+  stats.checks++;
+  if (kind === 'danger') stats.dangers++;
+  if (kind === 'safe') stats.safe++;
+  localStorage.setItem('sb_stats', JSON.stringify(stats));
+  renderStats();
+}
+function renderStats() {
+  document.getElementById('statChecks').textContent = stats.checks;
+  document.getElementById('statDangers').textContent = stats.dangers;
+  document.getElementById('statSafe').textContent = stats.safe;
+}
+renderStats();
+
+// ================= history =================
+let history = JSON.parse(localStorage.getItem('sb_history') || '[]');
+function addHistory(badge, name, barcode) {
+  history.unshift({
+    badge, name, barcode: barcode || null,
+    time: new Date().toLocaleString(lang === 'th' ? 'th-TH' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+  });
+  history = history.slice(0, 10);
+  localStorage.setItem('sb_history', JSON.stringify(history));
+  renderHistory();
+}
+function renderHistory() {
+  const el = document.getElementById('historyList');
+  if (!history.length) {
+    el.innerHTML = `<div class="history-empty">${t('historyEmpty')}</div>`;
+    return;
+  }
+  el.innerHTML = '';
+  history.forEach(h => {
+    const div = document.createElement('div');
+    div.className = 'history-item' + (h.barcode ? ' clickable' : '');
+    div.innerHTML = `<span class="badge">${h.badge}</span><span class="hname">${h.name}</span><span class="htime">${h.time}</span>`;
+    if (h.barcode) div.onclick = () => lookupBarcode(h.barcode);
+    el.appendChild(div);
+  });
+}
+document.getElementById('clearHistoryBtn').onclick = (e) => {
+  e.stopPropagation();
+  history = [];
+  localStorage.setItem('sb_history', '[]');
+  renderHistory();
+};
+
+// ================= Open Food Facts: barcode lookup =================
+function parseProduct(p) {
+  return {
+    name: p.product_name_th || p.product_name || t('unknownProduct'),
+    brand: p.brands || '',
+    img: p.image_front_small_url || p.image_front_url || '',
+    nutriscore: p.nutriscore_grade || '',
+  };
+}
+
+async function lookupBarcode(code) {
+  const loading = document.getElementById('loading');
+  loading.style.display = 'block';
+  document.getElementById('result').className = 'result';
+  try {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json`);
+    const data = await res.json();
+    loading.style.display = 'none';
+    if (data.status !== 1 || !data.product) {
+      showResult('unknown', t('notFoundTitle'), t('notFoundDesc', { code }));
+      return;
+    }
+    const p = data.product;
+    const ingredients = [p.ingredients_text_th, p.ingredients_text_en, p.ingredients_text].filter(Boolean).join(' ');
+    analyze(ingredients, p.allergens_tags || [], p.traces_tags || [], parseProduct(p), code);
+  } catch (e) {
+    loading.style.display = 'none';
+    showResult('unknown', t('noNetTitle'), t('noNetDesc'));
+  }
+}
+
+document.getElementById('lookupBtn').onclick = () => {
+  const code = document.getElementById('barcodeInput').value.trim();
+  if (code) lookupBarcode(code);
+};
+document.getElementById('barcodeInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('lookupBtn').click();
+});
+
+// ================= Open Food Facts: search by name =================
+async function searchProducts() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  const loading = document.getElementById('loading');
+  const box = document.getElementById('searchResults');
+  box.innerHTML = '';
+  loading.style.display = 'block';
+  document.getElementById('result').className = 'result';
+  try {
+    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=6&fields=code,product_name,product_name_th,brands,image_front_small_url`;
+    const res = await fetch(url);
+    const data = await res.json();
+    loading.style.display = 'none';
+    const items = (data.products || []).filter(p => p.code);
+    if (!items.length) {
+      showResult('unknown', t('noResultsTitle'), t('noResultsDesc', { q }));
+      return;
+    }
+    items.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'sr-item';
+      const name = p.product_name_th || p.product_name || p.code;
+      div.innerHTML = `
+        ${p.image_front_small_url ? `<img src="${p.image_front_small_url}" alt="">` : '<div class="noimg">🍽️</div>'}
+        <div><div class="sr-name">${name}</div>${p.brands ? `<div class="sr-brand">${p.brands}</div>` : ''}</div>`;
+      div.onclick = () => lookupBarcode(p.code);
+      box.appendChild(div);
+    });
+  } catch (e) {
+    loading.style.display = 'none';
+    showResult('unknown', t('noNetTitle'), t('noNetDesc'));
+  }
+}
+document.getElementById('searchBtn').onclick = searchProducts;
+document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') searchProducts(); });
+
+// ================= ingredient text check =================
+document.getElementById('checkTextBtn').onclick = () => {
+  const txt = document.getElementById('ingredientsInput').value.trim();
+  if (!txt) {
+    showResult('unknown', t('noTextTitle'), t('noTextDesc'));
+    return;
+  }
+  analyze(txt, [], [], null, null);
+};
+
+// ================= camera scanner =================
+let scanner = null;
+document.getElementById('scanBtn').onclick = async () => {
+  const btn = document.getElementById('scanBtn');
+  if (scanner) {
+    await scanner.stop().catch(() => {});
+    scanner = null;
+    btn.textContent = t('openCam');
+    return;
+  }
+  scanner = new Html5Qrcode('reader');
+  btn.textContent = t('closeCam');
+  try {
+    await scanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      async (decodedText) => {
+        await scanner.stop().catch(() => {});
+        scanner = null;
+        btn.textContent = t('openCam');
+        document.getElementById('barcodeInput').value = decodedText;
+        lookupBarcode(decodedText);
+      },
+      () => {} // ignore per-frame decode errors
+    );
+  } catch (e) {
+    scanner = null;
+    btn.textContent = t('openCam');
+    showResult('unknown', t('camFailTitle'), t('camFailDesc'));
+  }
+};
+
+// ================= init =================
+applyLang();
+</script>
+</body>
+</html>
