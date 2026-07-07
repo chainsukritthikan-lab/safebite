@@ -4,7 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0b101c">
+<meta name="description" content="SafeBite — scan food barcodes, search products, or photograph ingredient labels to spot your allergens instantly. Free, private, works in English and Thai.">
+<meta property="og:title" content="SafeBite — Eat safe, worry less 🛡️">
+<meta property="og:description" content="Scan food. Spot your allergens. Eat with confidence.">
 <title>SafeBite — Eat safe, worry less 🛡️</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
   :root {
@@ -34,7 +40,6 @@
   }
   .container { max-width: 560px; margin: 0 auto; padding: 16px; }
 
-  /* top bar */
   .topbar { display: flex; justify-content: flex-end; padding-top: 10px; }
   .lang-toggle {
     background: var(--card2); border: 1px solid rgba(255,255,255,.08);
@@ -51,7 +56,6 @@
   .logo span.b { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
   header p { color: var(--muted); font-size: .93rem; margin-top: 6px; }
 
-  /* stats */
   .stats { display: flex; gap: 10px; margin-top: 18px; }
   .stat {
     flex: 1; background: var(--card); border: 1px solid rgba(255,255,255,.06);
@@ -80,7 +84,6 @@
     font-size: .85rem; font-weight: 800; flex-shrink: 0;
   }
 
-  /* profiles */
   .profiles { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
   .profile {
     background: var(--card2); border: 2px solid transparent; color: var(--text);
@@ -93,7 +96,6 @@
   .profile .x:hover { opacity: 1; color: var(--danger); }
   .profile.add-p { border: 1px dashed rgba(139,150,171,.5); color: var(--muted); }
 
-  /* allergy chips */
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip {
     background: var(--card2); border: 2px solid transparent; color: var(--text);
@@ -120,7 +122,6 @@
     border: 1px dashed rgba(74,222,128,.4);
   }
 
-  /* tabs */
   .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
   .tab {
     flex: 1; padding: 11px 6px; border-radius: 11px;
@@ -141,6 +142,7 @@
   }
   .btn.secondary { background: var(--card2); color: var(--text); }
   .btn:active { transform: scale(.98); }
+  .btn + .btn { margin-top: 10px; }
 
   #reader { border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
   #reader video { border-radius: 12px; }
@@ -154,7 +156,11 @@
   textarea:focus, input[type=text]:focus { border-color: var(--accent); }
   textarea { min-height: 110px; resize: vertical; }
 
-  /* search results */
+  .ocr-progress {
+    display: none; margin-top: 10px; text-align: center;
+    color: var(--accent2); font-size: .88rem;
+  }
+
   .search-results { margin-top: 4px; }
   .sr-item {
     display: flex; align-items: center; gap: 12px;
@@ -171,7 +177,6 @@
   .sr-item .sr-name { font-size: .9rem; font-weight: 600; }
   .sr-item .sr-brand { font-size: .78rem; color: var(--muted); }
 
-  /* result */
   .result { display: none; margin-top: 16px; border-radius: var(--radius); padding: 22px; text-align: center; animation: pop .3s ease; }
   @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .result.danger { display: block; background: rgba(248, 113, 113, .12); border: 2px solid var(--danger); }
@@ -217,8 +222,10 @@
     background: rgba(248,113,113,.35); color: #fecaca;
     padding: 1px 5px; border-radius: 5px; font-weight: 700;
   }
+  .share-btn {
+    margin-top: 14px; width: auto; padding: 10px 22px; font-size: .9rem;
+  }
 
-  /* history */
   .history-item {
     display: flex; align-items: center; gap: 10px;
     padding: 10px 4px; border-bottom: 1px solid rgba(255,255,255,.05);
@@ -283,7 +290,7 @@
     <div class="tabs">
       <button class="tab active" data-mode="scan">📷 <span data-i18n="tabScan">Scan barcode</span></button>
       <button class="tab" data-mode="search">🔎 <span data-i18n="tabSearch">Search name</span></button>
-      <button class="tab" data-mode="text">📝 <span data-i18n="tabText">Ingredients</span></button>
+      <button class="tab" data-mode="text">📝 <span data-i18n="tabText">Label / photo</span></button>
     </div>
 
     <div id="scanPane">
@@ -304,6 +311,9 @@
     <div id="textPane" style="display:none">
       <textarea id="ingredientsInput" data-i18n-ph="ingredientsPh" placeholder="Paste or type the ingredients from the food label here — Thai or English both work..."></textarea>
       <button class="btn" id="checkTextBtn" data-i18n="checkNow">✅ Check now</button>
+      <button class="btn secondary" id="ocrBtn" data-i18n="ocrBtn">📸 Or snap a photo of the label</button>
+      <input type="file" id="ocrFile" accept="image/*" capture="environment" style="display:none">
+      <div class="ocr-progress" id="ocrProgress"></div>
     </div>
   </div>
 
@@ -334,10 +344,14 @@ const T = {
     statChecks: 'foods checked', statDangers: 'dangers caught', statSafe: 'safe results',
     step1: "Who's eating? Pick their allergies",
     step2: 'Check the food',
-    tabScan: 'Scan barcode', tabSearch: 'Search name', tabText: 'Ingredients',
+    tabScan: 'Scan barcode', tabSearch: 'Search name', tabText: 'Label / photo',
     openCam: '📷 Open camera to scan', closeCam: '⏹ Stop camera',
     lookup: '🔍 Look up barcode',
     searchBtn: '🔎 Search product', checkNow: '✅ Check now',
+    ocrBtn: '📸 Or snap a photo of the label',
+    ocrLoading: 'Loading reader (first time takes a moment)...',
+    ocrWorking: 'Reading label... {p}%',
+    ocrFailTitle: "Couldn't read the photo", ocrFailDesc: 'Try a clearer, well-lit photo — or type the ingredients instead.',
     customPh: 'Allergic to something else? Type it — e.g. strawberry',
     barcodePh: 'Or type the barcode number, e.g. 3017620422003',
     searchPh: 'Type a product name, e.g. Oreo, Nutella, Lays...',
@@ -350,8 +364,8 @@ const T = {
     warnTitle: 'Careful — possible traces', warnDesc: 'The label says it MAY contain traces of:',
     safeTitle: 'No allergens found', safeDesc: "Looks safe for {name} — but always double-check the real label!",
     noDataTitle: 'No ingredient data', noDataDesc: 'This product has no ingredient info in the database. Please read the real label.',
-    notFoundTitle: 'Product not found', notFoundDesc: 'Barcode {code} is not in the database. Try the "Ingredients" tab instead.',
-    noNetTitle: 'Connection failed', noNetDesc: 'Check your internet and try again, or use the "Ingredients" tab.',
+    notFoundTitle: 'Product not found', notFoundDesc: 'Barcode {code} is not in the database. Try the "Label / photo" tab instead.',
+    noNetTitle: 'Connection failed', noNetDesc: 'Check your internet and try again, or use the "Label / photo" tab.',
     noAllergyTitle: 'No allergies selected', noAllergyDesc: 'Pick the allergies in step 1 first!',
     noTextTitle: 'No ingredients entered', noTextDesc: 'Paste or type the ingredients from the label first.',
     noResultsTitle: 'Nothing found', noResultsDesc: 'No products matched "{q}". Try another name.',
@@ -359,16 +373,22 @@ const T = {
     textCheck: 'Ingredient text check', unknownProduct: 'Unknown product',
     me: 'Me', addProfile: '＋ Add person', profileNamePrompt: "Person's name? (e.g. Mom, Dad, Kid)",
     nutriScore: 'Nutri-Score',
+    shareBtn: '📤 Share result', copied: '✅ Copied!',
+    shareDanger: 'contains allergens', shareSafe: 'looks allergen-safe', shareWarn: 'may contain traces of allergens',
   },
   th: {
     tagline: 'เช็คอาหารก่อนกิน — ปลอดภัยจากอาหารที่แพ้',
     statChecks: 'เช็คไปแล้ว', statDangers: 'กันอันตรายได้', statSafe: 'ผ่านปลอดภัย',
     step1: 'ใครกิน? เลือกสิ่งที่แพ้',
     step2: 'เช็คอาหาร',
-    tabScan: 'สแกนบาร์โค้ด', tabSearch: 'ค้นหาชื่อ', tabText: 'ส่วนผสม',
+    tabScan: 'สแกนบาร์โค้ด', tabSearch: 'ค้นหาชื่อ', tabText: 'ฉลาก / ถ่ายรูป',
     openCam: '📷 เปิดกล้องสแกน', closeCam: '⏹ ปิดกล้อง',
     lookup: '🔍 ค้นหาจากเลขบาร์โค้ด',
     searchBtn: '🔎 ค้นหาสินค้า', checkNow: '✅ เช็คเลย',
+    ocrBtn: '📸 หรือถ่ายรูปฉลากส่วนผสม',
+    ocrLoading: 'กำลังโหลดตัวอ่าน (ครั้งแรกใช้เวลาสักครู่)...',
+    ocrWorking: 'กำลังอ่านฉลาก... {p}%',
+    ocrFailTitle: 'อ่านรูปไม่สำเร็จ', ocrFailDesc: 'ลองถ่ายใหม่ให้ชัดและสว่างขึ้น หรือพิมพ์ส่วนผสมเองแทน',
     customPh: 'แพ้อย่างอื่น? พิมพ์เพิ่มเอง เช่น สตรอเบอร์รี่',
     barcodePh: 'หรือพิมพ์เลขบาร์โค้ดเอง เช่น 3017620422003',
     searchPh: 'พิมพ์ชื่อสินค้า เช่น Oreo, Nutella, เลย์...',
@@ -381,8 +401,8 @@ const T = {
     warnTitle: 'ระวัง! อาจมีปนเปื้อน', warnDesc: 'ฉลากระบุว่า "อาจมี" สิ่งที่แพ้ปนเปื้อนจากโรงงาน:',
     safeTitle: 'ไม่พบสิ่งที่แพ้', safeDesc: 'ดูปลอดภัยสำหรับ {name} — แต่อย่าลืมอ่านฉลากจริงเพื่อความชัวร์!',
     noDataTitle: 'ไม่มีข้อมูลส่วนผสม', noDataDesc: 'สินค้านี้ไม่มีข้อมูลส่วนผสมในฐานข้อมูล กรุณาอ่านฉลากจริง',
-    notFoundTitle: 'ไม่พบสินค้านี้', notFoundDesc: 'ไม่มีบาร์โค้ด {code} ในฐานข้อมูล ลองใช้แท็บ "ส่วนผสม" แทน',
-    noNetTitle: 'เชื่อมต่อไม่ได้', noNetDesc: 'เช็คอินเทอร์เน็ตแล้วลองใหม่ หรือใช้แท็บ "ส่วนผสม" แทน',
+    notFoundTitle: 'ไม่พบสินค้านี้', notFoundDesc: 'ไม่มีบาร์โค้ด {code} ในฐานข้อมูล ลองใช้แท็บ "ฉลาก / ถ่ายรูป" แทน',
+    noNetTitle: 'เชื่อมต่อไม่ได้', noNetDesc: 'เช็คอินเทอร์เน็ตแล้วลองใหม่ หรือใช้แท็บ "ฉลาก / ถ่ายรูป" แทน',
     noAllergyTitle: 'ยังไม่ได้เลือกสิ่งที่แพ้', noAllergyDesc: 'กรุณาเลือกสิ่งที่แพ้ในข้อ 1 ก่อนนะ',
     noTextTitle: 'ยังไม่ได้ใส่ส่วนผสม', noTextDesc: 'พิมพ์หรือวางส่วนผสมจากฉลากก่อนนะ',
     noResultsTitle: 'ไม่พบสินค้า', noResultsDesc: 'ไม่มีสินค้าที่ตรงกับ "{q}" ลองชื่ออื่นดูนะ',
@@ -390,6 +410,8 @@ const T = {
     textCheck: 'เช็คจากส่วนผสม', unknownProduct: 'ไม่ทราบชื่อสินค้า',
     me: 'ฉัน', addProfile: '＋ เพิ่มคน', profileNamePrompt: 'ชื่อคนนี้? (เช่น แม่, พ่อ, ลูก)',
     nutriScore: 'Nutri-Score',
+    shareBtn: '📤 แชร์ผลลัพธ์', copied: '✅ คัดลอกแล้ว!',
+    shareDanger: 'มีสิ่งที่แพ้', shareSafe: 'ดูปลอดภัย', shareWarn: 'อาจมีสิ่งที่แพ้ปนเปื้อน',
   },
 };
 let lang = localStorage.getItem('sb_lang') || 'en';
@@ -412,18 +434,17 @@ document.getElementById('langBtn').onclick = () => {
 const ALLERGENS = [
   { id: 'peanut',    en: '🥜 Peanut',        th: '🥜 ถั่วลิสง',        tags: ['peanuts'],           words: ['ถั่วลิสง', 'peanut', 'groundnut', 'arachide'] },
   { id: 'treenut',   en: '🌰 Tree nuts',     th: '🌰 ถั่วเปลือกแข็ง',  tags: ['nuts'],              words: ['อัลมอนด์', 'เม็ดมะม่วง', 'วอลนัท', 'แมคคาเดเมีย', 'พิสตาชิโอ', 'เฮเซลนัท', 'almond', 'cashew', 'walnut', 'macadamia', 'pistachio', 'hazelnut', 'pecan', 'tree nut'] },
-  { id: 'milk',      en: '🥛 Milk / Dairy',  th: '🥛 นม',              tags: ['milk'],              words: ['นม', 'เนย', 'ชีส', 'ครีม', 'เวย์', 'เคซีน', 'โยเกิร์ต', 'milk', 'butter', 'cheese', 'cream', 'whey', 'casein', 'yogurt', 'lactose', 'dairy'] },
-  { id: 'egg',       en: '🥚 Egg',           th: '🥚 ไข่',             tags: ['eggs'],              words: ['ไข่', 'egg', 'albumin', 'mayonnaise', 'มายองเนส'] },
-  { id: 'wheat',     en: '🌾 Wheat / Gluten', th: '🌾 แป้งสาลี/กลูเตน', tags: ['gluten'],            words: ['แป้งสาลี', 'ข้าวสาลี', 'กลูเตน', 'ข้าวบาร์เลย์', 'มอลต์', 'wheat', 'gluten', 'barley', 'rye', 'malt', 'flour'] },
-  { id: 'soy',       en: '🫘 Soy',           th: '🫘 ถั่วเหลือง',       tags: ['soybeans'],          words: ['ถั่วเหลือง', 'ซีอิ๊ว', 'เต้าเจี้ยว', 'เต้าหู้', 'เลซิติน', 'soy', 'soya', 'soybean', 'tofu', 'lecithin', 'edamame'] },
-  { id: 'fish',      en: '🐟 Fish',          th: '🐟 ปลา',             tags: ['fish'],              words: ['ปลา', 'น้ำปลา', 'ปลาร้า', 'fish', 'anchovy', 'tuna', 'salmon', 'cod', 'sardine'] },
-  { id: 'shellfish', en: '🦐 Shellfish',     th: '🦐 กุ้ง/ปู/หอย',      tags: ['crustaceans', 'molluscs'], words: ['กุ้ง', 'ปู', 'หอย', 'ปลาหมึก', 'กะปิ', 'shrimp', 'prawn', 'crab', 'lobster', 'oyster', 'squid', 'mussel', 'clam', 'scallop', 'shellfish', 'crustacean'] },
+  { id: 'milk',      en: '🥛 Milk / Dairy',  th: '🥛 นม',              tags: ['milk'],              words: ['นม', 'เนย', 'ชีส', 'ครีม', 'เวย์', 'เคซีน', 'โยเกิร์ต', 'คัสตาร์ด', 'milk', 'butter', 'ghee', 'cheese', 'cream', 'whey', 'casein', 'yogurt', 'yoghurt', 'lactose', 'dairy', 'custard'] },
+  { id: 'egg',       en: '🥚 Egg',           th: '🥚 ไข่',             tags: ['eggs'],              words: ['ไข่', 'egg', 'albumin', 'mayonnaise', 'มายองเนส', 'meringue'] },
+  { id: 'wheat',     en: '🌾 Wheat / Gluten', th: '🌾 แป้งสาลี/กลูเตน', tags: ['gluten'],            words: ['แป้งสาลี', 'ข้าวสาลี', 'กลูเตน', 'ข้าวบาร์เลย์', 'มอลต์', 'เซโมลินา', 'พาสต้า', 'บะหมี่', 'wheat', 'gluten', 'barley', 'rye', 'malt', 'flour', 'semolina', 'pasta', 'noodle'] },
+  { id: 'soy',       en: '🫘 Soy',           th: '🫘 ถั่วเหลือง',       tags: ['soybeans'],          words: ['ถั่วเหลือง', 'ซีอิ๊ว', 'เต้าเจี้ยว', 'เต้าหู้', 'เลซิติน', 'โปรตีนเกษตร', 'soy', 'soya', 'soybean', 'tofu', 'lecithin', 'edamame', 'tempeh', 'miso'] },
+  { id: 'fish',      en: '🐟 Fish',          th: '🐟 ปลา',             tags: ['fish'],              words: ['ปลา', 'น้ำปลา', 'ปลาร้า', 'fish', 'anchovy', 'tuna', 'salmon', 'cod', 'sardine', 'mackerel'] },
+  { id: 'shellfish', en: '🦐 Shellfish',     th: '🦐 กุ้ง/ปู/หอย',      tags: ['crustaceans', 'molluscs'], words: ['กุ้ง', 'ปู', 'หอย', 'ปลาหมึก', 'กะปิ', 'น้ำมันหอย', 'shrimp', 'prawn', 'crab', 'lobster', 'oyster', 'squid', 'mussel', 'clam', 'scallop', 'shellfish', 'crustacean'] },
   { id: 'sesame',    en: '⚪ Sesame',        th: '⚪ งา',              tags: ['sesame-seeds'],      words: ['งา', 'น้ำมันงา', 'sesame', 'tahini'] },
 ];
 
 // ================= profiles (family members) =================
-// each profile: { name, allergies: [ids], custom: [words] }
-let profiles = JSON.parse(localStorage.getItem('sb_profiles') || 'null') || [{ name: null, allergies: [], custom: [] }]; // name null = "Me"
+let profiles = JSON.parse(localStorage.getItem('sb_profiles') || 'null') || [{ name: null, allergies: [], custom: [] }];
 let activeP = Math.min(parseInt(localStorage.getItem('sb_activeP') || '0', 10), profiles.length - 1);
 const P = () => profiles[activeP];
 
@@ -431,7 +452,6 @@ function saveState() {
   localStorage.setItem('sb_profiles', JSON.stringify(profiles));
   localStorage.setItem('sb_activeP', String(activeP));
 }
-
 function profileName(p) { return p.name || t('me'); }
 
 function renderProfiles() {
@@ -550,6 +570,7 @@ function highlight(text, words) {
   return html.replace(/\x00/g, '<mark>').replace(/\x01/g, '</mark>');
 }
 
+let lastShareText = '';
 function showResult(type, title, desc, opts = {}) {
   const r = document.getElementById('result');
   r.className = 'result ' + type;
@@ -575,7 +596,22 @@ function showResult(type, title, desc, opts = {}) {
   if (opts.highlightedText) {
     html += `<div class="matched-text">${opts.highlightedText}</div>`;
   }
+  if (type !== 'unknown') {
+    const kind = type === 'danger' ? 'shareDanger' : type === 'warn' ? 'shareWarn' : 'shareSafe';
+    lastShareText = `${icons[type]} ${opts.product ? opts.product.name : t('textCheck')} ${t(kind)}` +
+      (opts.hits && opts.hits.length ? `: ${opts.hits.join(', ')}` : '') +
+      `\n🛡️ SafeBite — https://chainsukritthikan-lab.github.io/safebite/`;
+    html += `<button class="btn secondary share-btn" id="shareResBtn">${t('shareBtn')}</button>`;
+  }
   r.innerHTML = html;
+  const sb = r.querySelector('#shareResBtn');
+  if (sb) sb.onclick = async () => {
+    try {
+      if (navigator.share) await navigator.share({ text: lastShareText });
+      else { await navigator.clipboard.writeText(lastShareText); sb.textContent = t('copied'); }
+    } catch (e) {}
+  };
+  if (type === 'danger' && navigator.vibrate) navigator.vibrate([150, 60, 150]);
   r.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
@@ -742,6 +778,48 @@ document.getElementById('checkTextBtn').onclick = () => {
   analyze(txt, [], [], null, null);
 };
 
+// ================= OCR: photo of the label =================
+const ocrFile = document.getElementById('ocrFile');
+document.getElementById('ocrBtn').onclick = () => ocrFile.click();
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+ocrFile.addEventListener('change', async () => {
+  const file = ocrFile.files[0];
+  if (!file) return;
+  const prog = document.getElementById('ocrProgress');
+  prog.style.display = 'block';
+  prog.textContent = t('ocrLoading');
+  try {
+    if (!window.Tesseract) await loadScript('https://unpkg.com/tesseract.js@5/dist/tesseract.min.js');
+    const worker = await Tesseract.createWorker(['eng', 'tha'], 1, {
+      logger: m => {
+        if (m.status === 'recognizing text') prog.textContent = t('ocrWorking', { p: Math.round(m.progress * 100) });
+      },
+    });
+    const { data } = await worker.recognize(file);
+    await worker.terminate();
+    prog.style.display = 'none';
+    const text = (data.text || '').trim();
+    if (!text) {
+      showResult('unknown', t('ocrFailTitle'), t('ocrFailDesc'));
+    } else {
+      document.getElementById('ingredientsInput').value = text;
+      document.getElementById('checkTextBtn').click();
+    }
+  } catch (e) {
+    prog.style.display = 'none';
+    showResult('unknown', t('ocrFailTitle'), t('ocrFailDesc'));
+  }
+  ocrFile.value = '';
+});
+
 // ================= camera scanner =================
 let scanner = null;
 document.getElementById('scanBtn').onclick = async () => {
@@ -773,6 +851,11 @@ document.getElementById('scanBtn').onclick = async () => {
     showResult('unknown', t('camFailTitle'), t('camFailDesc'));
   }
 };
+
+// ================= PWA =================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 
 // ================= init =================
 applyLang();
