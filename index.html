@@ -255,6 +255,35 @@
   .toggle-row.on { color: var(--danger); }
   .card-btn { margin-top: 14px; }
 
+  .unlock-overlay {
+    position: fixed; inset: 0; z-index: 60; display: none;
+    align-items: center; justify-content: center; padding: 20px;
+    background: rgba(7, 10, 18, .96); overflow-y: auto;
+  }
+  .unlock-card {
+    background: var(--card); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 22px; padding: 26px 22px; max-width: 380px; width: 100%;
+    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  .unlock-card .ushield { font-size: 3rem; filter: drop-shadow(0 0 16px rgba(74,222,128,.5)); }
+  .unlock-card h2 { font-size: 1.4rem; margin: 8px 0 2px; }
+  .unlock-card .price {
+    font-size: 2.2rem; font-weight: 800; margin: 6px 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .unlock-card .udesc { color: var(--muted); font-size: .85rem; line-height: 1.6; }
+  .pay-tabs { display: flex; gap: 8px; margin: 16px 0 12px; }
+  .pay-tabs .tab { font-size: .82rem; }
+  .qr-holder {
+    background: #fff; border-radius: 14px; padding: 14px;
+    display: inline-block; margin: 4px auto 8px;
+  }
+  .qr-holder img, .qr-holder canvas { display: block; max-width: 210px; }
+  .pay-to { color: var(--muted); font-size: .82rem; margin-top: 2px; }
+  .paid-btn { margin-top: 16px; }
+  .pay-note { color: var(--muted); font-size: .72rem; line-height: 1.6; margin-top: 12px; }
+
   .ac-overlay { position: fixed; inset: 0; z-index: 50; background: #7f1d1d; display: flex; align-items: center; justify-content: center; padding: 20px; cursor: pointer; overflow-y: auto; }
   .ac-inner { text-align: center; max-width: 420px; }
   .ac-inner .ac-icon { font-size: 4rem; }
@@ -381,6 +410,30 @@
     ⚠️ SafeBite is a helper tool, not medical advice. Data comes from the Open Food Facts community database and may be incomplete.
     Always read the real label, and see a doctor for serious allergies.
   </p>
+</div>
+
+<!-- one-time 1-baht unlock screen (bilingual) -->
+<div class="unlock-overlay" id="unlockOverlay">
+  <div class="unlock-card">
+    <div class="ushield">🛡️</div>
+    <h2>Unlock SafeBite / ปลดล็อกแอป</h2>
+    <div class="price">฿1</div>
+    <p class="udesc">Pay once, use forever on this phone.<br>จ่ายครั้งเดียว ใช้ได้ตลอดไป</p>
+    <div class="pay-tabs">
+      <button class="tab active" id="ppTab">💳 PromptPay</button>
+      <button class="tab" id="tmTab" style="display:none">🧡 TrueMoney</button>
+    </div>
+    <div id="ppPane">
+      <div class="qr-holder"><div id="ppQr"></div></div>
+      <div class="pay-to">PromptPay: 094-692-9125 · ฿1.00</div>
+    </div>
+    <div id="tmPane" style="display:none">
+      <div class="qr-holder"><img id="tmImg" src="truemoney.png" alt="TrueMoney QR"></div>
+      <div class="pay-to">TrueMoney Wallet · ฿1.00</div>
+    </div>
+    <button class="btn paid-btn" id="paidBtn">✅ I've paid — unlock / จ่ายแล้ว — ปลดล็อก</button>
+    <p class="pay-note">Scan with any Thai banking app or TrueMoney Wallet.<br>สแกนด้วยแอปธนาคารหรือทรูมันนี่ วอลเล็ท 🙏</p>
+  </div>
 </div>
 
 <!-- bilingual allergy card for showing restaurant staff -->
@@ -1048,6 +1101,72 @@ document.getElementById('scanBtn').onclick = async () => {
     hideTorch();
     showResult('unknown', t('camFailTitle'), t('camFailDesc'));
   }
+};
+
+// ================= one-time 1-baht unlock =================
+const UNLOCK_PHONE = '0946929125';
+const UNLOCK_AMOUNT = 1.00;
+
+// CRC-16/CCITT-FALSE, required by the PromptPay/EMVCo QR spec
+function crc16(s) {
+  let crc = 0xFFFF;
+  for (const ch of s) {
+    crc ^= ch.charCodeAt(0) << 8;
+    for (let i = 0; i < 8; i++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+      crc &= 0xFFFF;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+// EMVCo "Thai QR" payload: phone proxy 0066 + number without leading 0
+function promptPayPayload(phone, amount) {
+  const f = (id, v) => id + String(v.length).padStart(2, '0') + v;
+  const target = '0066' + phone.replace(/\D/g, '').replace(/^0/, '');
+  const merchant = f('00', 'A000000677010111') + f('01', target);
+  let p = f('00', '01') + f('01', '11') + f('29', merchant) + f('53', '764');
+  if (amount) p += f('54', amount.toFixed(2));
+  p += f('58', 'TH') + '6304';
+  return p + crc16(p);
+}
+
+const unlockEl = document.getElementById('unlockOverlay');
+async function showUnlock() {
+  unlockEl.style.display = 'flex';
+  try {
+    if (!window.QRCode) await loadScript('https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js');
+    new QRCode(document.getElementById('ppQr'), {
+      text: promptPayPayload(UNLOCK_PHONE, UNLOCK_AMOUNT),
+      width: 210, height: 210, correctLevel: QRCode.CorrectLevel.M,
+    });
+  } catch (e) {
+    // QR lib unavailable (offline first launch) — show number to pay manually
+    document.getElementById('ppQr').textContent = 'PromptPay: ' + UNLOCK_PHONE;
+  }
+}
+if (localStorage.getItem('sb_unlocked') !== '1') showUnlock();
+
+document.getElementById('paidBtn').onclick = () => {
+  localStorage.setItem('sb_unlocked', '1');
+  unlockEl.style.display = 'none';
+};
+
+// TrueMoney tab only appears if truemoney.png exists in the app folder
+const tmImg = document.getElementById('tmImg');
+tmImg.onload = () => { document.getElementById('tmTab').style.display = 'block'; };
+tmImg.onerror = () => { document.getElementById('tmTab').style.display = 'none'; };
+document.getElementById('ppTab').onclick = () => {
+  document.getElementById('ppTab').classList.add('active');
+  document.getElementById('tmTab').classList.remove('active');
+  document.getElementById('ppPane').style.display = 'block';
+  document.getElementById('tmPane').style.display = 'none';
+};
+document.getElementById('tmTab').onclick = () => {
+  document.getElementById('tmTab').classList.add('active');
+  document.getElementById('ppTab').classList.remove('active');
+  document.getElementById('tmPane').style.display = 'block';
+  document.getElementById('ppPane').style.display = 'none';
 };
 
 // ================= PWA =================
