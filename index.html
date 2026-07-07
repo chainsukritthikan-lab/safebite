@@ -416,9 +416,9 @@
 <div class="unlock-overlay" id="unlockOverlay">
   <div class="unlock-card">
     <div class="ushield">🛡️</div>
-    <h2>Unlock SafeBite / ปลดล็อกแอป</h2>
+    <h2>1 check = ฿1 / เช็ค 1 ครั้ง = 1 บาท</h2>
     <div class="price">฿1</div>
-    <p class="udesc">Pay once, use forever on this phone.<br>จ่ายครั้งเดียว ใช้ได้ตลอดไป</p>
+    <p class="udesc">Pay 1 baht, then your food check runs.<br>จ่าย 1 บาท แล้วระบบจะเช็คอาหารให้ทันที</p>
     <div class="pay-tabs">
       <button class="tab active" id="ppTab">💳 PromptPay</button>
       <button class="tab" id="tmTab" style="display:none">🧡 TrueMoney</button>
@@ -431,8 +431,9 @@
       <div class="qr-holder"><img id="tmImg" src="truemoney.png" alt="TrueMoney QR"></div>
       <div class="pay-to">TrueMoney Wallet · ฿1.00</div>
     </div>
-    <button class="btn paid-btn" id="paidBtn">✅ I've paid — unlock / จ่ายแล้ว — ปลดล็อก</button>
+    <button class="btn paid-btn" id="paidBtn">✅ I've paid ฿1 — check now / จ่ายแล้ว — เช็คเลย</button>
     <p class="pay-note">Scan with any Thai banking app or TrueMoney Wallet.<br>สแกนด้วยแอปธนาคารหรือทรูมันนี่ วอลเล็ท 🙏</p>
+    <button class="clear-history" id="payCancel" style="margin:10px auto 0;display:block;font-size:.85rem">✕ Cancel / ยกเลิก</button>
   </div>
 </div>
 
@@ -923,7 +924,12 @@ function parseProduct(p) {
   };
 }
 
-async function lookupBarcode(code) {
+function lookupBarcode(code) {
+  // charge 1 baht per lookup (scan, manual barcode, search pick, history without cache)
+  requireCredit(() => doLookupBarcode(code));
+}
+
+async function doLookupBarcode(code) {
   const loading = document.getElementById('loading');
   loading.style.display = 'block';
   document.getElementById('result').className = 'result';
@@ -996,7 +1002,8 @@ document.getElementById('checkTextBtn').onclick = () => {
     showResult('unknown', t('noTextTitle'), t('noTextDesc'));
     return;
   }
-  analyze(txt, [], [], null, null);
+  // charge 1 baht per ingredient/photo check
+  requireCredit(() => analyze(txt, [], [], null, null));
 };
 
 // ================= OCR: photo of the label =================
@@ -1132,23 +1139,39 @@ function promptPayPayload(phone, amount) {
 }
 
 const unlockEl = document.getElementById('unlockOverlay');
-async function showUnlock() {
+let pendingCheck = null; // the check waiting to run after payment
+let qrDrawn = false;
+
+async function showPay(run) {
+  pendingCheck = run;
   unlockEl.style.display = 'flex';
+  if (qrDrawn) return;
   try {
     if (!window.QRCode) await loadScript('https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js');
     new QRCode(document.getElementById('ppQr'), {
       text: promptPayPayload(UNLOCK_PHONE, UNLOCK_AMOUNT),
       width: 210, height: 210, correctLevel: QRCode.CorrectLevel.M,
     });
+    qrDrawn = true;
   } catch (e) {
-    // QR lib unavailable (offline first launch) — show number to pay manually
+    // QR lib unavailable (offline) — show number to pay manually
     document.getElementById('ppQr').textContent = 'PromptPay: ' + UNLOCK_PHONE;
   }
 }
-if (localStorage.getItem('sb_unlocked') !== '1') showUnlock();
+
+// every food check costs 1 baht
+function requireCredit(run) {
+  showPay(run);
+}
 
 document.getElementById('paidBtn').onclick = () => {
-  localStorage.setItem('sb_unlocked', '1');
+  unlockEl.style.display = 'none';
+  const run = pendingCheck;
+  pendingCheck = null;
+  if (run) run();
+};
+document.getElementById('payCancel').onclick = () => {
+  pendingCheck = null;
   unlockEl.style.display = 'none';
 };
 
