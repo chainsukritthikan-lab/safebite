@@ -244,6 +244,38 @@
   }
   .clear-history:hover { color: var(--danger); }
 
+  .toggle-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: .88rem; color: var(--muted); cursor: pointer; user-select: none; }
+  .switch { position: relative; width: 44px; height: 24px; background: var(--card2); border-radius: 999px; transition: .2s; flex-shrink: 0; border: 1px solid rgba(255,255,255,.1); }
+  .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--muted); transition: .2s; }
+  .toggle-row.on .switch { background: rgba(248,113,113,.3); border-color: var(--danger); }
+  .toggle-row.on .switch::after { left: 22px; background: var(--danger); }
+  .toggle-row.on { color: var(--danger); }
+  .card-btn { margin-top: 14px; }
+
+  .ac-overlay { position: fixed; inset: 0; z-index: 50; background: #7f1d1d; display: flex; align-items: center; justify-content: center; padding: 20px; cursor: pointer; overflow-y: auto; }
+  .ac-inner { text-align: center; max-width: 420px; }
+  .ac-inner .ac-icon { font-size: 4rem; }
+  .ac-inner h2 { color: #fff; font-size: 1.6rem; margin: 10px 0; }
+  .ac-inner .ac-name { color: #fecaca; font-size: 1.05rem; margin-bottom: 6px; }
+  .ac-list { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 16px 0; }
+  .ac-list span { background: #fff; color: #7f1d1d; font-weight: 800; font-size: 1.15rem; padding: 10px 18px; border-radius: 12px; }
+  .ac-msg { color: #fee2e2; font-size: .95rem; line-height: 1.7; margin-top: 10px; }
+  .ac-close-hint { color: rgba(255,255,255,.5); font-size: .75rem; margin-top: 18px; }
+
+  .tip-banner {
+    margin-top: 16px; background: rgba(34,211,238,.08); border: 1px solid rgba(34,211,238,.35);
+    border-radius: 14px; padding: 12px 14px; font-size: .85rem; color: var(--text);
+    display: flex; gap: 10px; align-items: flex-start; line-height: 1.6;
+  }
+  .tip-banner button { margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; flex-shrink: 0; }
+
+  .history-item img.hthumb { width: 30px; height: 30px; border-radius: 6px; object-fit: contain; background: #fff; flex-shrink: 0; }
+
+  .btn-google {
+    display: inline-block; margin-top: 12px; background: var(--card2); color: var(--accent2);
+    padding: 9px 18px; border-radius: 10px; text-decoration: none; font-size: .88rem;
+  }
+
   .disclaimer {
     margin-top: 22px; font-size: .78rem; color: var(--muted);
     text-align: center; line-height: 1.7; padding: 0 10px;
@@ -267,6 +299,11 @@
     <p data-i18n="tagline">Scan food. Spot your allergens. Eat with confidence.</p>
   </header>
 
+  <div class="tip-banner" id="tipBanner" style="display:none">
+    <span data-i18n="tip">👋 First time? 1) Pick allergies below 2) Scan, search, or photograph food 3) Get an instant answer. Add to Home Screen to use it like an app!</span>
+    <button id="tipClose" title="close">✕</button>
+  </div>
+
   <div class="stats">
     <div class="stat"><div class="num" id="statChecks">0</div><div class="lbl" data-i18n="statChecks">foods checked</div></div>
     <div class="stat red"><div class="num" id="statDangers">0</div><div class="lbl" data-i18n="statDangers">dangers caught</div></div>
@@ -282,6 +319,11 @@
       <input type="text" id="customInput" data-i18n-ph="customPh" placeholder="Allergic to something else? Type it — e.g. strawberry">
       <button id="addCustomBtn" title="Add">＋</button>
     </div>
+    <div class="toggle-row" id="strictRow">
+      <span class="switch"></span>
+      <span data-i18n="strictMode">🔥 Strict mode — treat "may contain traces" as DANGER</span>
+    </div>
+    <button class="btn secondary card-btn" id="allergyCardBtn" data-i18n="allergyCardBtn">🪪 Show allergy card (for restaurants)</button>
   </div>
 
   <!-- STEP 2: check food -->
@@ -336,6 +378,18 @@
   </p>
 </div>
 
+<!-- bilingual allergy card for showing restaurant staff -->
+<div class="ac-overlay" id="allergyCard" style="display:none">
+  <div class="ac-inner">
+    <div class="ac-icon">⚠️</div>
+    <h2>FOOD ALLERGY / แพ้อาหาร</h2>
+    <p class="ac-name" id="acName"></p>
+    <div class="ac-list" id="acList"></div>
+    <p class="ac-msg">Please make sure my food contains NONE of these ingredients.<br>กรุณาอย่าใส่วัตถุดิบเหล่านี้ในอาหารของฉันเด็ดขาด ขอบคุณค่ะ/ครับ 🙏</p>
+    <p class="ac-close-hint">tap anywhere to close / แตะที่หน้าจอเพื่อปิด</p>
+  </div>
+</div>
+
 <script>
 // ================= i18n =================
 const T = {
@@ -375,6 +429,11 @@ const T = {
     nutriScore: 'Nutri-Score',
     shareBtn: '📤 Share result', copied: '✅ Copied!',
     shareDanger: 'contains allergens', shareSafe: 'looks allergen-safe', shareWarn: 'may contain traces of allergens',
+    strictMode: '🔥 Strict mode — treat "may contain traces" as DANGER',
+    allergyCardBtn: '🪪 Show allergy card (for restaurants)',
+    tip: '👋 First time? 1) Pick allergies below 2) Scan, search, or photograph food 3) Get an instant answer. Add to Home Screen to use it like an app!',
+    googleIt: '🔎 Search Google instead',
+    cardFor: 'This card is for',
   },
   th: {
     tagline: 'เช็คอาหารก่อนกิน — ปลอดภัยจากอาหารที่แพ้',
@@ -412,6 +471,11 @@ const T = {
     nutriScore: 'Nutri-Score',
     shareBtn: '📤 แชร์ผลลัพธ์', copied: '✅ คัดลอกแล้ว!',
     shareDanger: 'มีสิ่งที่แพ้', shareSafe: 'ดูปลอดภัย', shareWarn: 'อาจมีสิ่งที่แพ้ปนเปื้อน',
+    strictMode: '🔥 โหมดเข้มงวด — ถือว่า "อาจมีปนเปื้อน" คืออันตราย',
+    allergyCardBtn: '🪪 แสดงบัตรแพ้อาหาร (โชว์ร้านอาหาร)',
+    tip: '👋 ครั้งแรกใช่ไหม? 1) เลือกสิ่งที่แพ้ด้านล่าง 2) สแกน ค้นหา หรือถ่ายรูปอาหาร 3) รู้ผลทันที! กด "เพิ่มไปยังหน้าจอโฮม" เพื่อใช้เหมือนแอปจริง',
+    googleIt: '🔎 ค้นหาใน Google แทน',
+    cardFor: 'บัตรนี้สำหรับ',
   },
 };
 let lang = localStorage.getItem('sb_lang') || 'en';
@@ -531,6 +595,49 @@ function addCustom() {
   inp.value = '';
 }
 
+// ================= strict mode =================
+let strictMode = localStorage.getItem('sb_strict') === '1';
+const strictRow = document.getElementById('strictRow');
+function renderStrict() { strictRow.classList.toggle('on', strictMode); }
+strictRow.onclick = () => {
+  strictMode = !strictMode;
+  localStorage.setItem('sb_strict', strictMode ? '1' : '0');
+  renderStrict();
+};
+renderStrict();
+
+// ================= first-visit tip =================
+if (!localStorage.getItem('sb_seen')) document.getElementById('tipBanner').style.display = 'flex';
+document.getElementById('tipClose').onclick = () => {
+  localStorage.setItem('sb_seen', '1');
+  document.getElementById('tipBanner').style.display = 'none';
+};
+
+// ================= allergy card (show restaurant staff) =================
+const acEl = document.getElementById('allergyCard');
+document.getElementById('allergyCardBtn').onclick = () => {
+  if (P().allergies.length === 0) {
+    showResult('unknown', t('noAllergyTitle'), t('noAllergyDesc'));
+    return;
+  }
+  document.getElementById('acName').textContent = `${t('cardFor')}: ${profileName(P())}`;
+  const list = document.getElementById('acList');
+  list.innerHTML = '';
+  const sel = new Set(P().allergies);
+  ALLERGENS.filter(a => sel.has(a.id)).forEach(a => {
+    const s = document.createElement('span');
+    s.textContent = `${a.en} / ${a.th.replace(/^\S+ /, '')}`;
+    list.appendChild(s);
+  });
+  P().custom.filter(w => sel.has('custom:' + w)).forEach(w => {
+    const s = document.createElement('span');
+    s.textContent = w;
+    list.appendChild(s);
+  });
+  acEl.style.display = 'flex';
+};
+acEl.onclick = () => { acEl.style.display = 'none'; };
+
 // ================= tabs =================
 document.querySelectorAll('.tab').forEach(tab => {
   tab.onclick = () => {
@@ -596,6 +703,9 @@ function showResult(type, title, desc, opts = {}) {
   if (opts.highlightedText) {
     html += `<div class="matched-text">${opts.highlightedText}</div>`;
   }
+  if (opts.google) {
+    html += `<a class="btn-google" target="_blank" rel="noopener" href="https://www.google.com/search?q=${encodeURIComponent(opts.google)}">${t('googleIt')}</a>`;
+  }
   if (type !== 'unknown') {
     const kind = type === 'danger' ? 'shareDanger' : type === 'warn' ? 'shareWarn' : 'shareSafe';
     lastShareText = `${icons[type]} ${opts.product ? opts.product.name : t('textCheck')} ${t(kind)}` +
@@ -630,16 +740,21 @@ function analyze(ingredientsText, offTags, tracesTags, product, barcode) {
       hits: main.hits, product,
       highlightedText: highlight(ingredientsText, main.matchedWords),
     });
-    addHistory('🚫', pname, barcode); bumpStats('danger');
+    addHistory('🚫', pname, barcode, product); bumpStats('danger');
   } else if (traces.hits.length > 0) {
-    showResult('warn', t('warnTitle'), t('warnDesc'), { hits: traces.hits, traces: true, product });
-    addHistory('⚠️', pname, barcode); bumpStats('danger');
+    if (strictMode) {
+      showResult('danger', t('dangerTitle'), t('warnDesc'), { hits: traces.hits, product });
+      addHistory('🚫', pname, barcode, product); bumpStats('danger');
+    } else {
+      showResult('warn', t('warnTitle'), t('warnDesc'), { hits: traces.hits, traces: true, product });
+      addHistory('⚠️', pname, barcode, product); bumpStats('danger');
+    }
   } else if (!ingredientsText && (!offTags || offTags.length === 0)) {
     showResult('unknown', t('noDataTitle'), t('noDataDesc'), { product });
-    addHistory('❓', pname, barcode); bumpStats('none');
+    addHistory('❓', pname, barcode, product); bumpStats('none');
   } else {
     showResult('safe', t('safeTitle'), t('safeDesc', { name }), { product });
-    addHistory('✅', pname, barcode); bumpStats('safe');
+    addHistory('✅', pname, barcode, product); bumpStats('safe');
   }
 }
 
@@ -661,9 +776,9 @@ renderStats();
 
 // ================= history =================
 let history = JSON.parse(localStorage.getItem('sb_history') || '[]');
-function addHistory(badge, name, barcode) {
+function addHistory(badge, name, barcode, product) {
   history.unshift({
-    badge, name, barcode: barcode || null,
+    badge, name, barcode: barcode || null, img: (product && product.img) || null,
     time: new Date().toLocaleString(lang === 'th' ? 'th-TH' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
   });
   history = history.slice(0, 10);
@@ -680,7 +795,7 @@ function renderHistory() {
   history.forEach(h => {
     const div = document.createElement('div');
     div.className = 'history-item' + (h.barcode ? ' clickable' : '');
-    div.innerHTML = `<span class="badge">${h.badge}</span><span class="hname">${h.name}</span><span class="htime">${h.time}</span>`;
+    div.innerHTML = `<span class="badge">${h.badge}</span>${h.img ? `<img class="hthumb" src="${h.img}" alt="">` : ''}<span class="hname">${h.name}</span><span class="htime">${h.time}</span>`;
     if (h.barcode) div.onclick = () => lookupBarcode(h.barcode);
     el.appendChild(div);
   });
@@ -711,7 +826,7 @@ async function lookupBarcode(code) {
     const data = await res.json();
     loading.style.display = 'none';
     if (data.status !== 1 || !data.product) {
-      showResult('unknown', t('notFoundTitle'), t('notFoundDesc', { code }));
+      showResult('unknown', t('notFoundTitle'), t('notFoundDesc', { code }), { google: code + ' ingredients ส่วนผสม' });
       return;
     }
     const p = data.product;
@@ -747,7 +862,7 @@ async function searchProducts() {
     loading.style.display = 'none';
     const items = (data.products || []).filter(p => p.code);
     if (!items.length) {
-      showResult('unknown', t('noResultsTitle'), t('noResultsDesc', { q }));
+      showResult('unknown', t('noResultsTitle'), t('noResultsDesc', { q }), { google: q + ' ingredients ส่วนผสม' });
       return;
     }
     items.forEach(p => {
