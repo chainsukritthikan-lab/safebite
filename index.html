@@ -370,6 +370,8 @@
 
     <div id="scanPane">
       <div id="reader"></div>
+      <div id="fileReader" style="display:none"></div>
+      <button class="btn" id="captureBtn" style="display:none;margin-bottom:10px">📸</button>
       <button class="btn secondary" id="torchBtn" style="display:none;margin-bottom:10px">🔦</button>
       <button class="btn" id="scanBtn" data-i18n="openCam">📷 Open camera to scan</button>
       <div style="margin-top:10px">
@@ -494,6 +496,7 @@ const T = {
     googleIt: '🔎 Search Google instead',
     cardFor: 'This card is for',
     torchOn: '🔦 Turn on flashlight', torchOff: '🔦 Turn off flashlight',
+    captureBtn: '📸 Capture photo', noBarcodeInPhoto: '❌ No barcode in photo — try closer',
   },
   th: {
     tagline: 'เช็คอาหารก่อนกิน — ปลอดภัยจากอาหารที่แพ้',
@@ -537,6 +540,7 @@ const T = {
     googleIt: '🔎 ค้นหาใน Google แทน',
     cardFor: 'บัตรนี้สำหรับ',
     torchOn: '🔦 เปิดไฟฉาย', torchOff: '🔦 ปิดไฟฉาย',
+    captureBtn: '📸 ถ่ายภาพเลย', noBarcodeInPhoto: '❌ ไม่เจอบาร์โค้ดในรูป ลองถ่ายใกล้ขึ้น',
   },
 };
 let lang = localStorage.getItem('sb_lang') || 'en';
@@ -1052,10 +1056,43 @@ ocrFile.addEventListener('change', async () => {
 let scanner = null;
 let torchOn = false;
 const torchBtn = document.getElementById('torchBtn');
+const captureBtn = document.getElementById('captureBtn');
+
+// only product barcode formats (+ QR) — fewer formats = faster, more accurate decoding
+const SCAN_CONFIG = {
+  formatsToSupport: [
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.ITF,
+    Html5QrcodeSupportedFormats.QR_CODE,
+  ],
+  // use the phone's native barcode detector when available — much more accurate
+  experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+  verbose: false,
+};
 
 function hideTorch() {
   torchOn = false;
   torchBtn.style.display = 'none';
+}
+
+async function stopScanner() {
+  if (scanner) await scanner.stop().catch(() => {});
+  scanner = null;
+  document.getElementById('scanBtn').textContent = t('openCam');
+  hideTorch();
+  captureBtn.style.display = 'none';
+}
+
+function onDecoded(decodedText) {
+  beep();
+  if (navigator.vibrate) navigator.vibrate(80);
+  document.getElementById('barcodeInput').value = decodedText;
+  lookupBarcode(decodedText);
 }
 
 torchBtn.onclick = async () => {
@@ -1067,33 +1104,55 @@ torchBtn.onclick = async () => {
   } catch (e) { hideTorch(); }
 };
 
+// snap a still frame and decode it — helps when live scanning can't lock on
+captureBtn.onclick = async () => {
+  if (!scanner) return;
+  const video = document.querySelector('#reader video');
+  if (!video || !video.videoWidth) return;
+  const cv = document.createElement('canvas');
+  cv.width = video.videoWidth; cv.height = video.videoHeight;
+  cv.getContext('2d').drawImage(video, 0, 0);
+  const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.95));
+  const file = new File([blob], 'capture.jpg', { type: 'image/jpeg' });
+  const tmp = new Html5Qrcode('fileReader', SCAN_CONFIG);
+  try {
+    const res = await (tmp.scanFileV2 ? tmp.scanFileV2(file, false) : tmp.scanFile(file, false));
+    const text = res && res.decodedText ? res.decodedText : res;
+    await stopScanner();
+    onDecoded(text);
+  } catch (e) {
+    captureBtn.textContent = t('noBarcodeInPhoto');
+    setTimeout(() => { if (scanner) captureBtn.textContent = t('captureBtn'); }, 1800);
+  } finally {
+    try { tmp.clear(); } catch (e) {}
+  }
+};
+
 document.getElementById('scanBtn').onclick = async () => {
   const btn = document.getElementById('scanBtn');
   if (scanner) {
-    await scanner.stop().catch(() => {});
-    scanner = null;
-    btn.textContent = t('openCam');
-    hideTorch();
+    await stopScanner();
     return;
   }
-  scanner = new Html5Qrcode('reader');
+  scanner = new Html5Qrcode('reader', SCAN_CONFIG);
   btn.textContent = t('closeCam');
   try {
     await scanner.start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 250, height: 150 } },
+      {
+        fps: 15,
+        // wide box matching barcode shape; HD feed for sharper decoding
+        qrbox: (w, h) => ({ width: Math.min(340, Math.floor(w * 0.9)), height: 170 }),
+        videoConstraints: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      },
       async (decodedText) => {
-        beep();
-        if (navigator.vibrate) navigator.vibrate(80);
-        await scanner.stop().catch(() => {});
-        scanner = null;
-        btn.textContent = t('openCam');
-        hideTorch();
-        document.getElementById('barcodeInput').value = decodedText;
-        lookupBarcode(decodedText);
+        await stopScanner();
+        onDecoded(decodedText);
       },
       () => {} // ignore per-frame decode errors
     );
+    captureBtn.textContent = t('captureBtn');
+    captureBtn.style.display = 'block';
     // offer flashlight if this camera supports it
     try {
       const caps = scanner.getRunningTrackCapabilities();
@@ -1103,9 +1162,7 @@ document.getElementById('scanBtn').onclick = async () => {
       }
     } catch (e) {}
   } catch (e) {
-    scanner = null;
-    btn.textContent = t('openCam');
-    hideTorch();
+    await stopScanner();
     showResult('unknown', t('camFailTitle'), t('camFailDesc'));
   }
 };
