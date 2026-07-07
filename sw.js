@@ -1,4 +1,4 @@
-const CACHE = 'safebite-v2';
+const CACHE = 'safebite-v3';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

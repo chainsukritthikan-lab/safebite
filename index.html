@@ -8,6 +8,9 @@
 <meta property="og:title" content="SafeBite — Eat safe, worry less 🛡️">
 <meta property="og:description" content="Scan food. Spot your allergens. Eat with confidence.">
 <title>SafeBite — Eat safe, worry less 🛡️</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SafeBite">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -291,7 +294,8 @@
 </head>
 <body>
 <div class="container">
-  <div class="topbar">
+  <div class="topbar" style="gap:8px">
+    <button class="lang-toggle" id="voiceBtn" title="Voice announcements">🔇</button>
     <button class="lang-toggle" id="langBtn">🇹🇭 ภาษาไทย</button>
   </div>
   <header>
@@ -337,6 +341,7 @@
 
     <div id="scanPane">
       <div id="reader"></div>
+      <button class="btn secondary" id="torchBtn" style="display:none;margin-bottom:10px">🔦</button>
       <button class="btn" id="scanBtn" data-i18n="openCam">📷 Open camera to scan</button>
       <div style="margin-top:10px">
         <input type="text" id="barcodeInput" data-i18n-ph="barcodePh" placeholder="Or type the barcode number, e.g. 3017620422003" inputmode="numeric">
@@ -434,6 +439,7 @@ const T = {
     tip: '👋 First time? 1) Pick allergies below 2) Scan, search, or photograph food 3) Get an instant answer. Add to Home Screen to use it like an app!',
     googleIt: '🔎 Search Google instead',
     cardFor: 'This card is for',
+    torchOn: '🔦 Turn on flashlight', torchOff: '🔦 Turn off flashlight',
   },
   th: {
     tagline: 'เช็คอาหารก่อนกิน — ปลอดภัยจากอาหารที่แพ้',
@@ -476,6 +482,7 @@ const T = {
     tip: '👋 ครั้งแรกใช่ไหม? 1) เลือกสิ่งที่แพ้ด้านล่าง 2) สแกน ค้นหา หรือถ่ายรูปอาหาร 3) รู้ผลทันที! กด "เพิ่มไปยังหน้าจอโฮม" เพื่อใช้เหมือนแอปจริง',
     googleIt: '🔎 ค้นหาใน Google แทน',
     cardFor: 'บัตรนี้สำหรับ',
+    torchOn: '🔦 เปิดไฟฉาย', torchOff: '🔦 ปิดไฟฉาย',
   },
 };
 let lang = localStorage.getItem('sb_lang') || 'en';
@@ -593,6 +600,41 @@ function addCustom() {
     saveState(); renderChips();
   }
   inp.value = '';
+}
+
+// ================= voice announcements =================
+let voiceOn = localStorage.getItem('sb_voice') === '1';
+const voiceBtn = document.getElementById('voiceBtn');
+function renderVoice() { voiceBtn.textContent = voiceOn ? '🔊' : '🔇'; }
+voiceBtn.onclick = () => {
+  voiceOn = !voiceOn;
+  localStorage.setItem('sb_voice', voiceOn ? '1' : '0');
+  renderVoice();
+  if (voiceOn) speak(lang === 'th' ? 'เปิดเสียงแล้ว' : 'Voice on');
+};
+renderVoice();
+
+function speak(text) {
+  if (!('speechSynthesis' in window)) return;
+  // strip emoji/symbols so they aren't read aloud
+  const clean = text.replace(/[^\p{L}\p{N}\s.,!?'/-]/gu, ' ').replace(/\s+/g, ' ').trim();
+  if (!clean) return;
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = lang === 'th' ? 'th-TH' : 'en-US';
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+// ================= scan feedback beep =================
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 1250; g.gain.value = .15;
+    o.start(); o.stop(ctx.currentTime + .12);
+    setTimeout(() => ctx.close().catch(() => {}), 400);
+  } catch (e) {}
 }
 
 // ================= strict mode =================
@@ -722,10 +764,11 @@ function showResult(type, title, desc, opts = {}) {
     } catch (e) {}
   };
   if (type === 'danger' && navigator.vibrate) navigator.vibrate([150, 60, 150]);
+  if (voiceOn) speak(`${title}. ${opts.hits && opts.hits.length ? opts.hits.join(', ') : desc}`);
   r.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-function analyze(ingredientsText, offTags, tracesTags, product, barcode) {
+function analyze(ingredientsText, offTags, tracesTags, product, barcode, record = true) {
   if (P().allergies.length === 0) {
     showResult('unknown', t('noAllergyTitle'), t('noAllergyDesc'));
     return;
@@ -734,27 +777,31 @@ function analyze(ingredientsText, offTags, tracesTags, product, barcode) {
   const main = checkText(ingredientsText, offTags);
   const traces = checkText('', tracesTags);
   const pname = product ? product.name : t('textCheck');
+  // cache inputs on the history entry so re-checks work instantly (and offline)
+  const cache = { ing: ingredientsText || '', tags: offTags || [], traces: tracesTags || [], brand: product ? product.brand : '', ns: product ? product.nutriscore : '' };
+  const addHistory = record ? window.addHistory : () => {};
+  const bumpStats = record ? window.bumpStats : () => {};
 
   if (main.hits.length > 0) {
     showResult('danger', t('dangerTitle'), t('dangerDesc', { name }), {
       hits: main.hits, product,
       highlightedText: highlight(ingredientsText, main.matchedWords),
     });
-    addHistory('🚫', pname, barcode, product); bumpStats('danger');
+    addHistory('🚫', pname, barcode, product, cache); bumpStats('danger');
   } else if (traces.hits.length > 0) {
     if (strictMode) {
       showResult('danger', t('dangerTitle'), t('warnDesc'), { hits: traces.hits, product });
-      addHistory('🚫', pname, barcode, product); bumpStats('danger');
+      addHistory('🚫', pname, barcode, product, cache); bumpStats('danger');
     } else {
       showResult('warn', t('warnTitle'), t('warnDesc'), { hits: traces.hits, traces: true, product });
-      addHistory('⚠️', pname, barcode, product); bumpStats('danger');
+      addHistory('⚠️', pname, barcode, product, cache); bumpStats('danger');
     }
   } else if (!ingredientsText && (!offTags || offTags.length === 0)) {
     showResult('unknown', t('noDataTitle'), t('noDataDesc'), { product });
-    addHistory('❓', pname, barcode, product); bumpStats('none');
+    addHistory('❓', pname, barcode, product, cache); bumpStats('none');
   } else {
     showResult('safe', t('safeTitle'), t('safeDesc', { name }), { product });
-    addHistory('✅', pname, barcode, product); bumpStats('safe');
+    addHistory('✅', pname, barcode, product, cache); bumpStats('safe');
   }
 }
 
@@ -776,9 +823,9 @@ renderStats();
 
 // ================= history =================
 let history = JSON.parse(localStorage.getItem('sb_history') || '[]');
-function addHistory(badge, name, barcode, product) {
+function addHistory(badge, name, barcode, product, cache) {
   history.unshift({
-    badge, name, barcode: barcode || null, img: (product && product.img) || null,
+    badge, name, barcode: barcode || null, img: (product && product.img) || null, cache: cache || null,
     time: new Date().toLocaleString(lang === 'th' ? 'th-TH' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
   });
   history = history.slice(0, 10);
@@ -794,9 +841,15 @@ function renderHistory() {
   el.innerHTML = '';
   history.forEach(h => {
     const div = document.createElement('div');
-    div.className = 'history-item' + (h.barcode ? ' clickable' : '');
+    div.className = 'history-item' + (h.barcode || h.cache ? ' clickable' : '');
     div.innerHTML = `<span class="badge">${h.badge}</span>${h.img ? `<img class="hthumb" src="${h.img}" alt="">` : ''}<span class="hname">${h.name}</span><span class="htime">${h.time}</span>`;
-    if (h.barcode) div.onclick = () => lookupBarcode(h.barcode);
+    if (h.cache) {
+      // instant offline re-check from cached data (record=false: don't duplicate history/stats)
+      div.onclick = () => analyze(h.cache.ing, h.cache.tags, h.cache.traces,
+        { name: h.name, brand: h.cache.brand, img: h.img || '', nutriscore: h.cache.ns }, h.barcode, false);
+    } else if (h.barcode) {
+      div.onclick = () => lookupBarcode(h.barcode);
+    }
     el.appendChild(div);
   });
 }
@@ -937,12 +990,30 @@ ocrFile.addEventListener('change', async () => {
 
 // ================= camera scanner =================
 let scanner = null;
+let torchOn = false;
+const torchBtn = document.getElementById('torchBtn');
+
+function hideTorch() {
+  torchOn = false;
+  torchBtn.style.display = 'none';
+}
+
+torchBtn.onclick = async () => {
+  if (!scanner) return;
+  torchOn = !torchOn;
+  try {
+    await scanner.applyVideoConstraints({ advanced: [{ torch: torchOn }] });
+    torchBtn.textContent = torchOn ? t('torchOff') : t('torchOn');
+  } catch (e) { hideTorch(); }
+};
+
 document.getElementById('scanBtn').onclick = async () => {
   const btn = document.getElementById('scanBtn');
   if (scanner) {
     await scanner.stop().catch(() => {});
     scanner = null;
     btn.textContent = t('openCam');
+    hideTorch();
     return;
   }
   scanner = new Html5Qrcode('reader');
@@ -952,17 +1023,29 @@ document.getElementById('scanBtn').onclick = async () => {
       { facingMode: 'environment' },
       { fps: 10, qrbox: { width: 250, height: 150 } },
       async (decodedText) => {
+        beep();
+        if (navigator.vibrate) navigator.vibrate(80);
         await scanner.stop().catch(() => {});
         scanner = null;
         btn.textContent = t('openCam');
+        hideTorch();
         document.getElementById('barcodeInput').value = decodedText;
         lookupBarcode(decodedText);
       },
       () => {} // ignore per-frame decode errors
     );
+    // offer flashlight if this camera supports it
+    try {
+      const caps = scanner.getRunningTrackCapabilities();
+      if (caps && caps.torch) {
+        torchBtn.textContent = t('torchOn');
+        torchBtn.style.display = 'block';
+      }
+    } catch (e) {}
   } catch (e) {
     scanner = null;
     btn.textContent = t('openCam');
+    hideTorch();
     showResult('unknown', t('camFailTitle'), t('camFailDesc'));
   }
 };
@@ -974,6 +1057,12 @@ if ('serviceWorker' in navigator) {
 
 // ================= init =================
 applyLang();
+// support home-screen shortcut deep links: ?mode=scan|search|text
+const startMode = new URLSearchParams(location.search).get('mode');
+if (startMode) {
+  const tab = [...document.querySelectorAll('.tab')].find(x => x.dataset.mode === startMode);
+  if (tab) tab.click();
+}
 </script>
 </body>
 </html>
