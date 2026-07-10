@@ -1,5 +1,5 @@
 <title>APEX Skidpad — tire physics prototype</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <style>
   :root{
     --ink:#e6e8ea; --ink-dim:#9aa0a6; --glass:rgba(14,15,17,.82);
@@ -7,7 +7,7 @@
     --edge:rgba(230,232,234,.14);
     --mono:ui-monospace,'SF Mono','Cascadia Mono','JetBrains Mono',Menlo,Consolas,monospace;
   }
-  html,body{height:100%;margin:0;background:#101410;overflow:hidden}
+  html,body{height:100%;margin:0;background:#101410;overflow:hidden;touch-action:none;overscroll-behavior:none}
   body{font-family:var(--mono);color:var(--ink);-webkit-user-select:none;user-select:none}
   canvas#view{display:block;width:100vw;height:100vh}
 
@@ -60,6 +60,40 @@
   #hint{top:14px;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:.12em;
     color:var(--ink-dim);text-transform:uppercase;padding:6px 12px}
   @media (max-width:760px){#gbox,#hint{display:none}}
+
+  /* ---- touch controls (shown only on coarse-pointer devices) ---- */
+  .tc{display:none;position:fixed;z-index:8}
+  body.touch .tc{display:flex}
+  body.touch #hint,body.touch #pedals,body.touch #gbox{display:none}
+  body.touch #tires{bottom:auto;top:86px;right:10px;transform:scale(.82);transform-origin:top right}
+  body.touch #speedbox{top:10px;right:10px;min-width:96px;padding:6px 12px}
+  body.touch #speed{font-size:30px}
+  body.touch #session{display:none}
+  body.touch #chips{left:10px;transform:none}
+  #steerZone{left:max(12px,env(safe-area-inset-left));bottom:max(16px,env(safe-area-inset-bottom));
+    width:min(46vw,300px);height:84px;border-radius:14px;background:rgba(14,15,17,.55);
+    border:1px solid var(--edge);touch-action:none}
+  #steerZone::before{content:'';position:absolute;left:50%;top:8px;bottom:8px;width:1px;background:var(--edge)}
+  #steerKnob{position:absolute;top:9px;bottom:9px;width:46px;border-radius:10px;left:calc(50% - 23px);
+    background:rgba(230,232,234,.18);border:1px solid rgba(230,232,234,.35)}
+  #padR{right:max(12px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));
+    flex-direction:column;align-items:flex-end;gap:10px}
+  #padR .row{display:flex;gap:10px}
+  .cbtn{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--ink);
+    background:rgba(14,15,17,.55);border:1px solid var(--edge);border-radius:50%;
+    width:54px;height:54px;touch-action:none;-webkit-tap-highlight-color:transparent}
+  .cbtn.big{width:82px;height:82px;font-size:12px}
+  #btnThr{border-color:rgba(124,227,139,.55);color:var(--accent)}
+  #btnBrk{border-color:rgba(239,83,80,.55);color:var(--crit)}
+  .cbtn:active{background:rgba(230,232,234,.16)}
+  #chips{top:10px;left:50%;transform:translateX(-50%);gap:8px}
+  .chip{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--ink-dim);
+    background:rgba(14,15,17,.55);border:1px solid var(--edge);border-radius:6px;padding:7px 13px;
+    -webkit-tap-highlight-color:transparent}
+  #tchHelp{display:none}
+  body.touch #kbdTable{display:none}
+  body.touch #tchHelp{display:block;font-size:12px;line-height:2}
+  #tchHelp b{color:var(--accent);font-weight:400}
 </style>
 
 <canvas id="view"></canvas>
@@ -96,18 +130,37 @@
 
 <div class="panel" id="hint">R reset · C camera · M sound · space handbrake</div>
 
+<div class="tc" id="steerZone"><div id="steerKnob"></div></div>
+<div class="tc" id="padR">
+  <button class="cbtn" id="btnHb">HB</button>
+  <div class="row">
+    <button class="cbtn big" id="btnBrk">BRK</button>
+    <button class="cbtn big" id="btnThr">THR</button>
+  </div>
+</div>
+<div class="tc" id="chips">
+  <button class="chip" id="chipR">RESET</button>
+  <button class="chip" id="chipC">CAM</button>
+  <button class="chip" id="chipM">SOUND</button>
+</div>
+
 <div id="overlay">
   <div class="card">
     <h1>APEX <em>SKIDPAD</em></h1>
     <p class="sub">ApexDyn phase 1 — slip-angle tyre model · friction circle · weight transfer</p>
-    <table>
+    <table id="kbdTable">
       <tr><td>W / ↑</td><td>throttle</td></tr>
       <tr><td>S / ↓</td><td>brake / reverse</td></tr>
       <tr><td>A D / ← →</td><td>steer</td></tr>
       <tr><td>space</td><td>handbrake (drift)</td></tr>
       <tr><td>R · C · M</td><td>reset · camera · engine sound</td></tr>
     </table>
-    <div class="go">press any key to roll out</div>
+    <div id="tchHelp">
+      <b>left slider</b> — steer<br>
+      <b>THR / BRK</b> — throttle · brake (brake reverses when stopped)<br>
+      <b>HB</b> — handbrake, hold to drift
+    </div>
+    <div class="go">press any key or tap to roll out</div>
   </div>
 </div>
 
@@ -147,6 +200,7 @@ const WPOS = [ {x:P.a,y: P.tw/2},{x:P.a,y:-P.tw/2},{x:-P.b,y: P.tw/2},{x:-P.b,y:
 
 // ---- input ----
 const keys = {};
+const tin = { steer:0, thr:0, brk:0, hb:false };      // touch inputs, merged in step()
 addEventListener('keydown', e=>{
   if(!started) start();
   keys[e.code]=true;
@@ -178,7 +232,10 @@ function step(dt){
   let sTgt = (keys.KeyA||keys.ArrowLeft?1:0) - (keys.KeyD||keys.ArrowRight?1:0);
   let tTgt = (keys.KeyW||keys.ArrowUp)?1:0;
   let bTgt = (keys.KeyS||keys.ArrowDown)?1:0;
-  car.hbrake = !!keys.Space;
+  car.hbrake = !!keys.Space || tin.hb;
+  sTgt = clamp(sTgt + tin.steer, -1, 1);
+  tTgt = Math.max(tTgt, tin.thr);
+  bTgt = Math.max(bTgt, tin.brk);
   if(gp){ const ax=gp.axes[0]||0; if(Math.abs(ax)>0.08) sTgt=-ax;
     const rt=gp.buttons[7], lt=gp.buttons[6];
     if(rt) tTgt=Math.max(tTgt, rt.value); if(lt) bTgt=Math.max(bTgt, lt.value);
@@ -457,6 +514,41 @@ const sound = (()=>{
     }
   };
 })();
+
+// ============================================================ touch controls
+const isTouch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+if (isTouch){
+  document.body.classList.add('touch');
+  const sz=$('steerZone'), knob=$('steerKnob');
+  let sid=null;
+  const setSteer=e=>{
+    const r=sz.getBoundingClientRect(), half=r.width/2;
+    const v=clamp((e.clientX-(r.left+half))/(half-26), -1, 1);
+    tin.steer=-v;                                     // slider left = steer left (+ in ISO frame)
+    knob.style.left=`calc(50% - 23px + ${v*(half-30)}px)`;
+  };
+  sz.addEventListener('pointerdown',e=>{ if(!started)start(); sid=e.pointerId;
+    sz.setPointerCapture(sid); setSteer(e); e.preventDefault(); });
+  sz.addEventListener('pointermove',e=>{ if(e.pointerId===sid) setSteer(e); });
+  const endSteer=e=>{ if(e.pointerId===sid){ sid=null; tin.steer=0;
+    knob.style.left='calc(50% - 23px)'; } };
+  sz.addEventListener('pointerup',endSteer);
+  sz.addEventListener('pointercancel',endSteer);
+
+  const hold=(id,on,off)=>{ const el=$(id);
+    el.addEventListener('pointerdown',e=>{ if(!started)start();
+      el.setPointerCapture(e.pointerId); on(); e.preventDefault(); });
+    el.addEventListener('pointerup',off);
+    el.addEventListener('pointercancel',off);
+    el.addEventListener('contextmenu',e=>e.preventDefault()); };
+  hold('btnThr', ()=>tin.thr=1,  ()=>tin.thr=0);
+  hold('btnBrk', ()=>tin.brk=1,  ()=>tin.brk=0);
+  hold('btnHb',  ()=>tin.hb=true,()=>tin.hb=false);
+  $('chipR').addEventListener('click',()=>{ if(!started)start(); reset(); });
+  $('chipC').addEventListener('click',()=>chase=!chase);
+  $('chipM').addEventListener('click',()=>sound.toggle());
+}
+document.getElementById('overlay').addEventListener('pointerdown',()=>{ if(!started) start(); });
 
 // ============================================================ main loop
 let started=false, acc=0, last=performance.now();
