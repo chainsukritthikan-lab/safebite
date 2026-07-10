@@ -1,0 +1,473 @@
+<title>APEX Skidpad — tire physics prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --ink:#e6e8ea; --ink-dim:#9aa0a6; --glass:rgba(14,15,17,.82);
+    --accent:#7ce38b; --warn:#f2b441; --crit:#ef5350;
+    --edge:rgba(230,232,234,.14);
+    --mono:ui-monospace,'SF Mono','Cascadia Mono','JetBrains Mono',Menlo,Consolas,monospace;
+  }
+  html,body{height:100%;margin:0;background:#101410;overflow:hidden}
+  body{font-family:var(--mono);color:var(--ink);-webkit-user-select:none;user-select:none}
+  canvas#view{display:block;width:100vw;height:100vh}
+
+  .panel{position:fixed;background:var(--glass);border:1px solid var(--edge);
+    border-radius:6px;padding:10px 14px;backdrop-filter:blur(6px);z-index:5}
+  .lbl{font-size:10px;letter-spacing:.14em;color:var(--ink-dim);text-transform:uppercase}
+
+  #session{top:14px;left:14px;line-height:1.5}
+  #session b{font-size:12px;letter-spacing:.18em}
+  #session span{font-size:10px;letter-spacing:.1em;color:var(--accent)}
+
+  #speedbox{top:14px;right:14px;text-align:right;min-width:130px}
+  #speed{font-size:44px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+  #speedu{font-size:10px;letter-spacing:.14em;color:var(--ink-dim)}
+
+  #pedals{bottom:14px;left:14px;display:flex;flex-direction:column;gap:7px;min-width:170px}
+  .bar{display:flex;align-items:center;gap:8px;font-size:10px}
+  .bar .lbl{width:44px}
+  .track{flex:1;height:8px;background:rgba(230,232,234,.10);border-radius:2px;overflow:hidden}
+  .fill{height:100%;width:0%;border-radius:2px}
+  #thrF{background:var(--accent)} #brkF{background:var(--crit)}
+  .strack{flex:1;height:8px;background:rgba(230,232,234,.10);border-radius:2px;position:relative}
+  #strI{position:absolute;top:-2px;width:4px;height:12px;background:var(--ink);border-radius:1px;left:calc(50% - 2px)}
+
+  #tires{bottom:14px;right:14px;display:grid;grid-template-columns:auto auto;gap:6px 10px;align-items:center}
+  .tire{width:22px;height:34px;border-radius:5px;background:#3a3d40;position:relative;justify-self:center;
+    box-shadow:inset 0 0 0 2px rgba(0,0,0,.35)}
+  .tire i{position:absolute;left:0;bottom:0;width:100%;border-radius:5px;background:var(--accent);opacity:.9;height:0%}
+  .tt{font-size:10px;color:var(--ink-dim);font-variant-numeric:tabular-nums;min-width:44px}
+  #tires .head{grid-column:1/-1;text-align:center;margin-bottom:2px}
+
+  #gbox{bottom:14px;right:150px;width:86px;height:86px;padding:8px;display:flex;flex-direction:column;align-items:center;gap:2px}
+  #gcanvas{width:66px;height:66px}
+  #gval{font-size:10px;color:var(--ink-dim);font-variant-numeric:tabular-nums}
+
+  #overlay{position:fixed;inset:0;background:rgba(8,10,9,.86);display:flex;align-items:center;
+    justify-content:center;z-index:20;backdrop-filter:blur(3px)}
+  #overlay .card{max-width:520px;padding:36px 40px;border:1px solid var(--edge);border-radius:8px;
+    background:rgba(14,15,17,.9)}
+  #overlay h1{margin:0 0 4px;font-size:26px;letter-spacing:.30em;font-weight:700}
+  #overlay h1 em{color:var(--accent);font-style:normal}
+  #overlay p.sub{margin:0 0 22px;font-size:11px;letter-spacing:.12em;color:var(--ink-dim);text-transform:uppercase}
+  #overlay table{border-collapse:collapse;font-size:12px;line-height:2}
+  #overlay td:first-child{color:var(--accent);padding-right:22px;white-space:nowrap}
+  #overlay .go{margin-top:24px;font-size:12px;letter-spacing:.18em;color:var(--ink);text-transform:uppercase;
+    animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  @media (prefers-reduced-motion:reduce){#overlay .go{animation:none}}
+
+  #hint{top:14px;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:.12em;
+    color:var(--ink-dim);text-transform:uppercase;padding:6px 12px}
+  @media (max-width:760px){#gbox,#hint{display:none}}
+</style>
+
+<canvas id="view"></canvas>
+
+<div class="panel" id="session">
+  <b>APEX <em style="color:var(--accent);font-style:normal">SKIDPAD</em></b><br>
+  <span id="mode">ApexDyn / phase 1 · night session</span><br>
+  <span class="lbl" id="surf">surface: asphalt</span>
+</div>
+
+<div class="panel" id="speedbox">
+  <div id="speed">0</div>
+  <div id="speedu">km/h</div>
+</div>
+
+<div class="panel" id="pedals">
+  <div class="bar"><span class="lbl">thr</span><div class="track"><div class="fill" id="thrF"></div></div></div>
+  <div class="bar"><span class="lbl">brk</span><div class="track"><div class="fill" id="brkF"></div></div></div>
+  <div class="bar"><span class="lbl">steer</span><div class="strack"><div id="strI"></div></div></div>
+</div>
+
+<div class="panel" id="gbox">
+  <canvas id="gcanvas" width="132" height="132"></canvas>
+  <div id="gval">0.00 g</div>
+</div>
+
+<div class="panel" id="tires">
+  <div class="lbl head">tyres · slip / °C</div>
+  <div class="tire" id="tFL"><i></i></div><div class="tire" id="tFR"><i></i></div>
+  <div class="tt" id="cFL">25°</div><div class="tt" id="cFR">25°</div>
+  <div class="tire" id="tRL"><i></i></div><div class="tire" id="tRR"><i></i></div>
+  <div class="tt" id="cRL">25°</div><div class="tt" id="cRR">25°</div>
+</div>
+
+<div class="panel" id="hint">R reset · C camera · M sound · space handbrake</div>
+
+<div id="overlay">
+  <div class="card">
+    <h1>APEX <em>SKIDPAD</em></h1>
+    <p class="sub">ApexDyn phase 1 — slip-angle tyre model · friction circle · weight transfer</p>
+    <table>
+      <tr><td>W / ↑</td><td>throttle</td></tr>
+      <tr><td>S / ↓</td><td>brake / reverse</td></tr>
+      <tr><td>A D / ← →</td><td>steer</td></tr>
+      <tr><td>space</td><td>handbrake (drift)</td></tr>
+      <tr><td>R · C · M</td><td>reset · camera · engine sound</td></tr>
+    </table>
+    <div class="go">press any key to roll out</div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ============================================================ world units: metres, ISO body frame (x fwd, y left)
+const TAU = Math.PI*2, G = 9.81;
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+// ---- vehicle parameters (sporty RWD coupe) ----
+const P = {
+  m:1240, Iz:1650, a:1.16, b:1.34, tw:1.56, h:0.46,   // masses, geometry (a/b: CG→axles)
+  mu:1.02,                                            // peak tyre-road friction, dry asphalt
+  tB:8.6, tC:1.55, tE:0.96,                           // magic-formula shape
+  steerMax:0.56, steerRate:3.0, steerReturn:4.6,      // rad, rad/s
+  powerW:216e3, driveFmax:7400, brakeFmax:11800, brakeBias:0.62,
+  cda:0.72, rr:0.014,
+};
+P.L = P.a + P.b;
+
+// ---- track furniture ----
+const PAD = 190;                                       // asphalt half-size (m)
+const RING_A = 20, RING_B = 36;                        // skidpad radii
+const cones = [];
+for (let i=-5;i<=5;i++) cones.push({x:i*13, y:-95, vx:0,vy:0, spin:0, hit:false});          // slalom
+for (let i=0;i<14;i++){ const t=i/14*TAU;
+  cones.push({x:Math.cos(t)*(RING_A-2.2), y:Math.sin(t)*(RING_A-2.2), vx:0,vy:0,spin:0,hit:false}); }
+for (let i=-4;i<=4;i++) cones.push({x:120, y:i*22, vx:0,vy:0,spin:0,hit:false});             // lane gates
+
+// ---- car state ----
+const car = { x:0, y:-140, h:Math.PI/2, vx:0, vy:0, r:0,
+  steer:0, thr:0, brk:0, hbrake:false,
+  axS:0, ayS:0 };                                      // smoothed accelerations for load transfer
+const tires = [0,1,2,3].map(()=>({alpha:0, use:0, T:25, mx:0, my:0, marking:false}));
+// wheel hardpoints (body frame): FL FR RL RR
+const WPOS = [ {x:P.a,y: P.tw/2},{x:P.a,y:-P.tw/2},{x:-P.b,y: P.tw/2},{x:-P.b,y:-P.tw/2} ];
+
+// ---- input ----
+const keys = {};
+addEventListener('keydown', e=>{
+  if(!started) start();
+  keys[e.code]=true;
+  if(e.code==='KeyR') reset();
+  if(e.code==='KeyC') chase=!chase;
+  if(e.code==='KeyM') sound.toggle();
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+});
+addEventListener('keyup', e=>keys[e.code]=false);
+function pad(){ const gp = navigator.getGamepads && navigator.getGamepads()[0]; return gp && gp.connected ? gp : null; }
+
+const coneHome = cones.map(c=>({x:c.x,y:c.y}));
+function reset(){ Object.assign(car,{x:0,y:-140,h:Math.PI/2,vx:0,vy:0,r:0,steer:0,axS:0,ayS:0});
+  tires.forEach(t=>{t.T=25;t.alpha=0;});
+  cones.forEach((c,i)=>{c.hit=false;c.vx=c.vy=c.spin=0;c.x=coneHome[i].x;c.y=coneHome[i].y;});
+}
+
+// ---- magic formula ----
+function mf(s, D){ const B=P.tB,C=P.tC,E=P.tE, Bs=B*s;
+  return D*Math.sin(C*Math.atan(Bs - E*(Bs - Math.atan(Bs)))); }
+
+const onPad = (x,y)=> Math.abs(x)<PAD && Math.abs(y)<PAD;
+
+// ============================================================ physics: fixed 240 Hz
+const DT = 1/240;
+function step(dt){
+  const gp = pad();
+  // -- driver inputs (rate-limited, like a real steering wheel) --
+  let sTgt = (keys.KeyA||keys.ArrowLeft?1:0) - (keys.KeyD||keys.ArrowRight?1:0);
+  let tTgt = (keys.KeyW||keys.ArrowUp)?1:0;
+  let bTgt = (keys.KeyS||keys.ArrowDown)?1:0;
+  car.hbrake = !!keys.Space;
+  if(gp){ const ax=gp.axes[0]||0; if(Math.abs(ax)>0.08) sTgt=-ax;
+    const rt=gp.buttons[7], lt=gp.buttons[6];
+    if(rt) tTgt=Math.max(tTgt, rt.value); if(lt) bTgt=Math.max(bTgt, lt.value);
+    if(gp.buttons[0]&&gp.buttons[0].pressed) car.hbrake=true; }
+  const sRate = (Math.sign(sTgt-car.steer)===Math.sign(-car.steer)&&sTgt===0)?P.steerReturn:P.steerRate;
+  car.steer += clamp(sTgt-car.steer, -sRate*dt, sRate*dt);
+  car.thr += clamp(tTgt-car.thr, -6*dt, 3.2*dt);
+  car.brk += clamp(bTgt-car.brk, -8*dt, 5*dt);
+
+  const spd = Math.hypot(car.vx, car.vy);
+  const delta = car.steer * P.steerMax / (1 + spd*spd/1700);   // speed-sensitive rack
+
+  // -- reverse: below walking pace, brake key drives backwards --
+  let revF = 0;
+  if (car.brk>0.1 && car.vx < 0.6) revF = -2600*car.brk;
+
+  const surfMu = onPad(car.x,car.y) ? 1.0 : 0.52;              // grass is slow. stay on the black stuff
+  const kGrass = onPad(car.x,car.y) ? 0 : 1;
+
+  // -- per-wheel vertical load: static + smoothed longitudinal & lateral transfer --
+  const FzF0 = P.m*G*P.b/P.L/2, FzR0 = P.m*G*P.a/P.L/2;
+  const dLong = P.m*car.axS*P.h/P.L/2;
+  const dLatF = 0.5*P.m*car.ayS*P.h/P.tw, dLatR = dLatF;
+  const Fz = [ FzF0-dLong-dLatF, FzF0-dLong+dLatF, FzR0+dLong-dLatR, FzR0+dLong+dLatR ]
+             .map(f=>Math.max(0,f));
+
+  // -- force requests --
+  const engF = car.thr * Math.min(P.powerW/Math.max(car.vx,6), P.driveFmax);
+  let FxB=0, FyB=0, Mz=0, maxUse=0, maxSlipV=0;
+
+  for(let i=0;i<4;i++){
+    const w = WPOS[i], t = tires[i];
+    const front = i<2, d = front?delta:0;
+    // contact-patch velocity, body frame → wheel frame
+    const vbx = car.vx - car.r*w.y, vby = car.vy + car.r*w.x;
+    const cd=Math.cos(d), sd=Math.sin(d);
+    const vl =  vbx*cd + vby*sd;                    // along wheel
+    const vt = -vbx*sd + vby*cd;                    // across wheel
+    // slip angle with low-speed guard + relaxation length (transient response)
+    const raw = Math.atan2(vt, Math.max(Math.abs(vl), 0.6));
+    t.alpha += clamp(Math.hypot(vl,vt)/0.30, 0, 1/dt) * (raw - t.alpha) * dt;
+
+    let mu = P.mu * surfMu;
+    let latScale = 1;
+    if (!front && car.hbrake){ mu*=0.78; latScale=0.28; }      // locked rears: grip gone sideways
+
+    // thermal window: cold tyres grip less, overheated tyres grease off
+    const dT=(t.T-88)/55;
+    mu *= 0.78 + 0.22*Math.exp(-dT*dT);
+
+    const cap = mu*Fz[i];
+    let Fy = -mf(t.alpha, cap) * latScale;
+
+    // longitudinal request: drive (rear), brake (biased), reverse crawl
+    let Fx = 0;
+    if(!front) Fx += engF/2 + revF/2;
+    const bShare = front ? P.brakeBias/2 : (1-P.brakeBias)/2;
+    if (revF===0) Fx += -Math.sign(vl||car.vx) * car.brk * P.brakeFmax * bShare * clamp(Math.abs(vl)/0.4,0,1);
+    if (!front && car.hbrake) Fx += -Math.sign(vl||1) * 0.9*cap * clamp(Math.abs(vl)/0.4,0,1);
+    Fx -= P.rr*Fz[i]*Math.sign(vl) * clamp(Math.abs(vl)/0.3,0,1);
+    Fx -= kGrass * 40 * vl;                                     // grass drag
+
+    // friction circle: scale combined demand to the cap
+    const hyp = Math.hypot(Fx,Fy);
+    const use = hyp/Math.max(cap,1);
+    if (hyp > cap){ const s=cap/hyp; Fx*=s; Fy*=s; }
+    t.use = use; maxUse = Math.max(maxUse, use);
+
+    // sliding speed → heat, marks, squeal
+    const vSlip = Math.hypot(vt*latScale, use>0.99 ? vl*0.15 : 0) + (car.hbrake&&!front?Math.abs(vl)*0.5:0);
+    maxSlipV = Math.max(maxSlipV, use>0.9 ? vSlip : 0);
+    t.T += ((use>0.85 ? vSlip*Math.abs(use)*1.9 : 0) + spd*0.05 - (t.T-25)*0.075) * dt;
+    t.marking = use>0.965 && spd>2.5 && onPad(car.x,car.y);
+
+    // back to body frame, accumulate
+    const fbx = Fx*cd - Fy*sd, fby = Fx*sd + Fy*cd;
+    FxB+=fbx; FyB+=fby; Mz += w.x*fby - w.y*fbx;
+
+    // world position of this wheel (for marks)
+    const ch=Math.cos(car.h), sh=Math.sin(car.h);
+    const nmx = car.x + w.x*ch - w.y*sh, nmy = car.y + w.x*sh + w.y*ch;
+    if (t.marking) markSeg(t.mx,t.my,nmx,nmy, clamp((t.use-0.9)*2.2,0.15,0.55));
+    t.mx=nmx; t.my=nmy;
+  }
+
+  // aero drag
+  FxB -= 0.5*1.22*P.cda*car.vx*Math.abs(car.vx);
+
+  const ax = FxB/P.m, ay = FyB/P.m;
+  car.axS += (ax-car.axS)*Math.min(1,10*dt);                    // smoothed for load transfer
+  car.ayS += (ay-car.ayS)*Math.min(1,10*dt);
+
+  // body-frame integration (dv/dt = F/m − ω×v)
+  car.vx += (ax + car.r*car.vy)*dt;
+  car.vy += (ay - car.r*car.vx)*dt;
+  car.r  += Mz/P.Iz*dt;
+  // parking logic: let it actually stop
+  if (spd<0.25 && car.thr<0.05 && revF===0){ car.vx*=0.85; car.vy*=0.85; car.r*=0.8; }
+
+  const ch=Math.cos(car.h), sh=Math.sin(car.h);
+  car.x += (car.vx*ch - car.vy*sh)*dt;
+  car.y += (car.vx*sh + car.vy*ch)*dt;
+  car.h += car.r*dt;
+
+  // cones: knockable
+  for(const c of cones){
+    if(!c.hit){
+      const dx=c.x-car.x, dy=c.y-car.y;
+      if(dx*dx+dy*dy < 4.4){
+        const lx = dx*ch+dy*sh;                                 // along body axis
+        if (Math.abs(lx)<2.4 && Math.abs(-dx*sh+dy*ch)<1.1){
+          c.hit=true;
+          c.vx=(car.vx*ch-car.vy*sh)*0.7+(Math.random()-.5)*3;
+          c.vy=(car.vx*sh+car.vy*ch)*0.7+(Math.random()-.5)*3;
+          c.spin=(Math.random()-.5)*14;
+        }
+      }
+    } else { c.x+=c.vx*dt; c.y+=c.vy*dt; c.vx*=1-2.2*dt; c.vy*=1-2.2*dt; c.spin*=1-1.5*dt; }
+  }
+
+  sound.update(car, maxSlipV, spd);
+  return {maxUse, spd};
+}
+
+// ============================================================ tyre marks: persistent world canvas
+const MPX = 3;                                                  // px per metre
+const marks = document.createElement('canvas');
+marks.width = marks.height = (PAD*2+20)*MPX;
+const mctx = marks.getContext('2d');
+mctx.lineCap='round';
+function markSeg(x0,y0,x1,y1,alpha){
+  if ((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0) > 9) return;   // stale point after reset — skip the streak
+  const o = PAD+10;
+  mctx.strokeStyle = `rgba(12,12,13,${alpha})`;
+  mctx.lineWidth = 0.30*MPX;
+  mctx.beginPath();
+  mctx.moveTo((x0+o)*MPX, (y0+o)*MPX);
+  mctx.lineTo((x1+o)*MPX, (y1+o)*MPX);
+  mctx.stroke();
+}
+
+// ============================================================ render
+const cv = document.getElementById('view'), ctx = cv.getContext('2d');
+let chase = true;
+function resize(){ cv.width=innerWidth*devicePixelRatio; cv.height=innerHeight*devicePixelRatio; }
+addEventListener('resize', resize); resize();
+
+function draw(spd){
+  const W=cv.width, H=cv.height;
+  const zoom = (9.5 - clamp(spd/60,0,1)*3.6) * devicePixelRatio;
+  ctx.setTransform(1,0,0,1,0,0);
+  // grass ground
+  ctx.fillStyle='#161c16'; ctx.fillRect(0,0,W,H);
+
+  // world is math-handed (y up, CCW+): flip canvas y so left is left
+  ctx.translate(W/2, H*0.58);
+  ctx.scale(zoom, -zoom);
+  if (chase) ctx.rotate(Math.PI/2 - car.h);
+  ctx.translate(-car.x, -car.y);
+
+  // asphalt pad
+  ctx.fillStyle='#26282b';
+  ctx.fillRect(-PAD,-PAD,PAD*2,PAD*2);
+  ctx.strokeStyle='rgba(230,232,234,.25)'; ctx.lineWidth=0.35;
+  ctx.strokeRect(-PAD,-PAD,PAD*2,PAD*2);
+
+  // painted markings
+  ctx.strokeStyle='rgba(230,232,234,.16)'; ctx.lineWidth=0.30;
+  for(const r of [RING_A, RING_B]){ ctx.beginPath(); ctx.arc(0,0,r,0,TAU); ctx.stroke(); }
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(-80,-95); ctx.lineTo(80,-95); ctx.stroke();      // slalom axis
+  ctx.beginPath(); ctx.moveTo(120,-95); ctx.lineTo(120,95); ctx.stroke();      // lane
+  ctx.setLineDash([]);
+
+  // tyre marks
+  ctx.drawImage(marks, -(PAD+10), -(PAD+10), (PAD+10)*2, (PAD+10)*2);
+
+  // cones
+  for(const c of cones){
+    ctx.save(); ctx.translate(c.x,c.y);
+    if(c.hit){ ctx.rotate(c.spin); ctx.fillStyle='#c96a2d';
+      ctx.beginPath(); ctx.ellipse(0,0,0.55,0.28,0,0,TAU); ctx.fill(); }
+    else { ctx.fillStyle='#e07a33';
+      ctx.beginPath(); ctx.arc(0,0,0.34,0,TAU); ctx.fill();
+      ctx.fillStyle='#f4b06a'; ctx.beginPath(); ctx.arc(0,0,0.15,0,TAU); ctx.fill(); }
+    ctx.restore();
+  }
+
+  // floodlight pools (cheap night atmosphere)
+  for(const [lx,ly] of [[-PAD,-PAD],[PAD,-PAD],[-PAD,PAD],[PAD,PAD],[0,0]]){
+    const g=ctx.createRadialGradient(lx,ly,2,lx,ly,90);
+    g.addColorStop(0,'rgba(235,240,225,0.055)'); g.addColorStop(1,'rgba(235,240,225,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(lx,ly,90,0,TAU); ctx.fill();
+  }
+
+  // car
+  ctx.save();
+  ctx.translate(car.x,car.y); ctx.rotate(car.h);
+  const d = car.steer*P.steerMax/(1+spd*spd/1700);
+  for(let i=0;i<4;i++){ const w=WPOS[i];
+    ctx.save(); ctx.translate(w.x,w.y); if(i<2) ctx.rotate(d);
+    ctx.fillStyle='#0c0d0e'; ctx.fillRect(-0.34,-0.13,0.68,0.26); ctx.restore(); }
+  ctx.fillStyle='#dfe3e6';
+  rrect(-P.b-0.42, -0.86, P.L+0.84, 1.72, 0.42); ctx.fill();
+  ctx.fillStyle='#17181a';                                      // glasshouse
+  rrect(-0.72,-0.66,1.28,1.32,0.28); ctx.fill();
+  ctx.fillStyle='#7ce38b';                                      // livery flash
+  ctx.fillRect(P.a+0.06,-0.86,0.16,1.72);
+  if (car.brk>0.15||car.hbrake){ ctx.fillStyle='#ef5350';
+    ctx.fillRect(-P.b-0.42,-0.62,0.14,0.34); ctx.fillRect(-P.b-0.42,0.28,0.14,0.34); }
+  ctx.restore();
+}
+function rrect(x,y,w,h,r){ ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+// ---- HUD ----
+const $ = id=>document.getElementById(id);
+const gctx = $('gcanvas').getContext('2d');
+const tEls=[['tFL','cFL'],['tFR','cFR'],['tRL','cRL'],['tRR','cRR']].map(([a,b])=>[$(a).firstElementChild,$(b)]);
+function hud(spd){
+  $('speed').textContent = Math.round(spd*3.6);
+  $('thrF').style.width = (car.thr*100)+'%';
+  $('brkF').style.width = (car.brk*100)+'%';
+  $('strI').style.left = `calc(${50 - car.steer*46}% - 2px)`;
+  $('surf').textContent = 'surface: ' + (onPad(car.x,car.y)?'asphalt · μ 1.0':'grass · μ 0.5');
+  for(let i=0;i<4;i++){ const t=tires[i], [bar,txt]=tEls[i];
+    const u=clamp(t.use,0,1.15);
+    bar.style.height=(clamp(u,0,1)*100)+'%';
+    bar.style.background = u>0.99?'var(--crit)':u>0.85?'var(--warn)':'var(--accent)';
+    txt.textContent = Math.round(t.T)+'°';
+    txt.style.color = t.T>115?'var(--crit)':t.T>60?'var(--ink)':'var(--ink-dim)';
+  }
+  // g-circle
+  const s=132, c=s/2, R=52;
+  gctx.clearRect(0,0,s,s);
+  gctx.strokeStyle='rgba(230,232,234,.18)'; gctx.lineWidth=1;
+  gctx.beginPath(); gctx.arc(c,c,R,0,TAU); gctx.stroke();
+  gctx.beginPath(); gctx.arc(c,c,R/2,0,TAU); gctx.stroke();
+  gctx.beginPath(); gctx.moveTo(c-R,c); gctx.lineTo(c+R,c); gctx.moveTo(c,c-R); gctx.lineTo(c,c+R); gctx.stroke();
+  const gx = clamp(-car.ayS/G,-1.4,1.4), gy = clamp(-car.axS/G,-1.4,1.4);
+  gctx.fillStyle='var(--accent)'; gctx.fillStyle='#7ce38b';
+  gctx.beginPath(); gctx.arc(c+gx*R/1.4, c+gy*R/1.4, 4, 0, TAU); gctx.fill();
+  $('gval').textContent = (Math.hypot(car.axS,car.ayS)/G).toFixed(2)+' g';
+}
+
+// ============================================================ sound: engine + tyre squeal (WebAudio, toggle M)
+const sound = (()=>{
+  let ac=null, on=false, eg=null, eo=null, sq=null, sg=null;
+  function build(){
+    ac = new (window.AudioContext||window.webkitAudioContext)();
+    eo = ac.createOscillator(); eo.type='sawtooth';
+    const eo2 = ac.createOscillator(); eo2.type='square';
+    const lp = ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=520;
+    eg = ac.createGain(); eg.gain.value=0;
+    eo.connect(lp); eo2.connect(lp); lp.connect(eg); eg.connect(ac.destination);
+    eo.start(); eo2.start(); sound._eo2=eo2;
+    const len=ac.sampleRate, buf=ac.createBuffer(1,len,ac.sampleRate), ch=buf.getChannelData(0);
+    for(let i=0;i<len;i++) ch[i]=Math.random()*2-1;
+    sq = ac.createBufferSource(); sq.buffer=buf; sq.loop=true;
+    const bp = ac.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=950; bp.Q.value=2.2;
+    sg = ac.createGain(); sg.gain.value=0;
+    sq.connect(bp); bp.connect(sg); sg.connect(ac.destination); sq.start();
+    sound._eo=eo;
+  }
+  return {
+    toggle(){ if(!ac) build(); on=!on; if(on) ac.resume(); if(!on&&eg){eg.gain.value=0; sg.gain.value=0;} },
+    update(car, slipV, spd){
+      if(!on||!ac) return;
+      const rpm = 0.18 + clamp(spd/58,0,1)*0.62 + car.thr*0.20;
+      const f = 52 + rpm*230;
+      this._eo.frequency.setTargetAtTime(f, ac.currentTime, .03);
+      this._eo2.frequency.setTargetAtTime(f*1.5, ac.currentTime, .03);
+      eg.gain.setTargetAtTime(0.028 + car.thr*0.05, ac.currentTime, .05);
+      sg.gain.setTargetAtTime(clamp(slipV/9,0,1)*0.12, ac.currentTime, .04);
+    }
+  };
+})();
+
+// ============================================================ main loop
+let started=false, acc=0, last=performance.now();
+function start(){ started=true; $('overlay').style.display='none'; }
+function frame(now){
+  requestAnimationFrame(frame);
+  let ft = Math.min((now-last)/1000, 0.05); last=now;
+  let out={maxUse:0,spd:Math.hypot(car.vx,car.vy)};
+  if(started){ acc+=ft; while(acc>=DT){ out=step(DT); acc-=DT; } }
+  draw(out.spd);
+  hud(out.spd);
+}
+requestAnimationFrame(frame);
+</script>
