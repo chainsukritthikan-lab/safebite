@@ -319,6 +319,111 @@
     margin: 0 auto 8px; animation: spin .8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ================= Bites the mascot ================= */
+  .mascot {
+    width: 92px; height: 92px; margin: 0 auto 2px; position: relative;
+    cursor: pointer; --m: var(--accent); -webkit-tap-highlight-color: transparent;
+  }
+  .m-body {
+    position: absolute; inset: 0;
+    background: linear-gradient(165deg, #2c3b5d, #18223a);
+    border: 2.5px solid var(--m);
+    border-radius: 44% 44% 50% 50% / 46% 46% 56% 56%;
+    box-shadow: 0 10px 24px rgba(0,0,0,.45), inset 0 -10px 22px rgba(0,0,0,.32);
+    transition: border-color .25s;
+    animation: mBob 3.4s ease-in-out infinite;
+  }
+  @keyframes mBob { 0%,100% { transform: translateY(0) rotate(-1.5deg); } 50% { transform: translateY(-5px) rotate(1.5deg); } }
+  @keyframes mHop { 0%,100% { transform: translateY(0); } 30% { transform: translateY(-17px) rotate(-7deg); } 62% { transform: translateY(0) scaleY(.9) scaleX(1.07); } }
+  @keyframes mShake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-7px) rotate(-4deg); } 40% { transform: translateX(7px) rotate(4deg); } 60% { transform: translateX(-5px); } 80% { transform: translateX(4px); } }
+  .m-eye {
+    position: absolute; top: 33%; width: 15px; height: 15px;
+    background: #eef2f9; border-radius: 50%; transition: .2s;
+  }
+  .m-eye.l { left: 23%; } .m-eye.r { right: 23%; }
+  .m-eye i { position: absolute; left: 3.5px; top: 4px; width: 8px; height: 8px; background: #101828; border-radius: 50%; animation: mBlink 4.6s infinite; }
+  @keyframes mBlink { 0%,93%,100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+  .m-mouth {
+    position: absolute; left: 50%; top: 60%; margin-left: -11px;
+    width: 22px; height: 4px; background: var(--m); border-radius: 999px;
+    transition: width .2s, height .2s, border-radius .2s, background .2s, margin-left .2s;
+  }
+  .m-cheek { position: absolute; top: 51%; width: 13px; height: 7px; background: rgba(248,113,113,.55); border-radius: 50%; opacity: 0; transition: opacity .25s; filter: blur(1.5px); }
+  .m-cheek.l { left: 10%; } .m-cheek.r { right: 10%; }
+  .m-spark { position: absolute; top: -4px; right: -6px; font-size: 1.15rem; opacity: 0; transform: scale(.3); transition: .3s; }
+
+  .mascot.happy { --m: var(--accent); }
+  .mascot.happy .m-body { animation: mHop .55s ease 2; }
+  .mascot.happy .m-mouth { width: 30px; height: 16px; margin-left: -15px; border-radius: 0 0 999px 999px; }
+  .mascot.happy .m-cheek { opacity: 1; }
+  .mascot.happy .m-spark { opacity: 1; transform: scale(1) rotate(14deg); }
+
+  .mascot.scared { --m: var(--danger); }
+  .mascot.scared .m-body { animation: mShake .42s ease 2; }
+  .mascot.scared .m-eye { width: 19px; height: 19px; top: 29%; }
+  .mascot.scared .m-mouth { width: 15px; height: 18px; margin-left: -7.5px; border-radius: 50%; }
+
+  .mascot.worry { --m: var(--warn); }
+  .mascot.worry .m-mouth { width: 22px; height: 11px; margin-left: -11px; border-radius: 999px 999px 0 0; }
+  .mascot.worry .m-eye.r { height: 8px; top: 36%; }
+
+  .mascot.meh { --m: var(--muted); }
+  .mascot.meh .m-mouth { width: 14px; margin-left: -7px; }
+
+  /* ================= confetti + alarm ================= */
+  .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 90; overflow: hidden; }
+  .confetti i { position: absolute; top: -16px; width: 9px; height: 14px; border-radius: 2px; animation: cFall linear forwards; }
+  @keyframes cFall { to { transform: translateY(105vh) rotate(760deg); opacity: .15; } }
+  .flash {
+    position: fixed; inset: 0; pointer-events: none; z-index: 89;
+    background: radial-gradient(circle at 50% 45%, rgba(248,113,113,0) 30%, rgba(248,113,113,.45) 100%);
+    animation: flashOut .8s ease forwards;
+  }
+  @keyframes flashOut { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes shakeScreen { 0%,100% { transform: translateX(0); } 15% { transform: translateX(-9px); } 32% { transform: translateX(8px); } 50% { transform: translateX(-6px); } 68% { transform: translateX(5px); } 85% { transform: translateX(-3px); } }
+  .shake { animation: shakeScreen .5s ease; }
+
+  /* ================= toasts ================= */
+  .toast-wrap { position: fixed; left: 0; right: 0; bottom: 18px; z-index: 95; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; padding: 0 14px; }
+  .toast {
+    display: flex; align-items: center; gap: 11px; max-width: 100%;
+    background: var(--card2); border: 1px solid rgba(74,222,128,.4);
+    border-radius: 16px; padding: 10px 18px 10px 14px;
+    box-shadow: 0 12px 34px rgba(0,0,0,.55);
+    animation: tIn .35s ease, tOut .4s ease forwards 3.4s;
+  }
+  .toast .ti { font-size: 1.5rem; flex-shrink: 0; }
+  .toast .tt { font-weight: 700; font-size: .88rem; }
+  .toast .ts { font-size: .75rem; color: var(--muted); }
+  @keyframes tIn { from { transform: translateY(30px); opacity: 0; } }
+  @keyframes tOut { to { transform: translateY(20px); opacity: 0; } }
+
+  /* ================= badges ================= */
+  .badges { margin-top: 14px; background: var(--card); border: 1px solid rgba(255,255,255,.06); border-radius: var(--radius); padding: 14px 14px 16px; }
+  .badges h2 { font-size: .95rem; display: flex; align-items: center; gap: 7px; margin-bottom: 12px; }
+  .badges .count { margin-left: auto; font-size: .78rem; font-weight: 500; color: var(--muted); }
+  .ach-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .ach { text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .ach .ai {
+    width: 46px; height: 46px; line-height: 44px; margin: 0 auto; font-size: 1.5rem;
+    border-radius: 50%; background: var(--card2); border: 1px solid rgba(255,255,255,.08);
+    filter: grayscale(1); opacity: .3; transition: .3s;
+  }
+  .ach.on .ai { filter: none; opacity: 1; border-color: var(--accent); background: rgba(74,222,128,.1); box-shadow: 0 0 16px rgba(74,222,128,.28); }
+  .ach .an { font-size: .63rem; line-height: 1.25; color: var(--muted); margin-top: 5px; }
+  .ach.on .an { color: var(--text); }
+  .ach.pop .ai { animation: mHop .6s ease; }
+
+  .stat.streak .num { color: var(--warn); }
+
+  @media (max-width: 400px) {
+    .stats { flex-wrap: wrap; }
+    .stat { flex: 1 1 calc(50% - 5px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .m-body, .mascot.happy .m-body, .mascot.scared .m-body, .m-eye i, .shake { animation: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -328,6 +433,16 @@
     <button class="lang-toggle" id="langBtn">🇹🇭 ภาษาไทย</button>
   </div>
   <header>
+    <div class="mascot idle" id="mascot" title="Bites">
+      <div class="m-body">
+        <div class="m-eye l"><i></i></div>
+        <div class="m-eye r"><i></i></div>
+        <div class="m-cheek l"></div>
+        <div class="m-cheek r"></div>
+        <div class="m-mouth"></div>
+      </div>
+      <div class="m-spark">✨</div>
+    </div>
     <div class="logo"><span class="shield">🛡️</span>Safe<span class="b">Bite</span></div>
     <p data-i18n="tagline">Scan food. Spot your allergens. Eat with confidence.</p>
   </header>
@@ -341,6 +456,12 @@
     <div class="stat"><div class="num" id="statChecks">0</div><div class="lbl" data-i18n="statChecks">foods checked</div></div>
     <div class="stat red"><div class="num" id="statDangers">0</div><div class="lbl" data-i18n="statDangers">dangers caught</div></div>
     <div class="stat green"><div class="num" id="statSafe">0</div><div class="lbl" data-i18n="statSafe">safe results</div></div>
+    <div class="stat streak"><div class="num" id="statStreak">0</div><div class="lbl" data-i18n="statStreak">🔥 day streak</div></div>
+  </div>
+
+  <div class="badges">
+    <h2>🏅 <span data-i18n="badgesTitle">Badges</span> <span class="count" id="badgeCount">0/8</span></h2>
+    <div class="ach-grid" id="badgeGrid"></div>
   </div>
 
   <!-- STEP 1: profile + allergies -->
@@ -497,6 +618,18 @@ const T = {
     cardFor: 'This card is for',
     torchOn: '🔦 Turn on flashlight', torchOff: '🔦 Turn off flashlight',
     captureBtn: '📸 Capture photo', noBarcodeInPhoto: '❌ No barcode in photo — try closer',
+    statStreak: '🔥 day streak', badgesTitle: 'Badges',
+    newBadge: 'New badge unlocked!',
+    streakTitle: '{n}-day streak!', streakSub: 'Checked something every day — keep it going',
+    mascotName: 'Bites',
+    pep: [
+      'Show me a label. I love labels.',
+      "I've read more ingredient lists than anyone alive.",
+      'Scan first, snack second.',
+      'That barcode is not going to read itself.',
+      'Hungry? Let me check it first. 🛡️',
+      'Coconut milk is not milk. I will die on this hill.',
+    ],
   },
   th: {
     tagline: 'เช็คอาหารก่อนกิน — ปลอดภัยจากอาหารที่แพ้',
@@ -541,6 +674,18 @@ const T = {
     cardFor: 'บัตรนี้สำหรับ',
     torchOn: '🔦 เปิดไฟฉาย', torchOff: '🔦 ปิดไฟฉาย',
     captureBtn: '📸 ถ่ายภาพเลย', noBarcodeInPhoto: '❌ ไม่เจอบาร์โค้ดในรูป ลองถ่ายใกล้ขึ้น',
+    statStreak: '🔥 วันติดกัน', badgesTitle: 'เหรียญรางวัล',
+    newBadge: 'ได้เหรียญใหม่!',
+    streakTitle: 'เช็คต่อเนื่อง {n} วันแล้ว!', streakSub: 'เช็คทุกวันเลย เก่งมาก ทำต่อไปนะ',
+    mascotName: 'ไบท์',
+    pep: [
+      'เอาฉลากมาให้ดูหน่อยสิ ชอบอ่านฉลากมาก',
+      'อ่านฉลากมาเยอะกว่าใครในโลกแล้วนะ',
+      'สแกนก่อน แล้วค่อยกิน',
+      'บาร์โค้ดมันไม่สแกนตัวเองนะ',
+      'หิวเหรอ? เดี๋ยวเช็คให้ก่อน 🛡️',
+      'กะทิไม่ใช่นมนะ ยืนยัน',
+    ],
   },
 };
 let lang = localStorage.getItem('sb_lang') || 'en';
@@ -551,7 +696,7 @@ function applyLang() {
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
   document.getElementById('langBtn').textContent = lang === 'en' ? '🇹🇭 ภาษาไทย' : '🇬🇧 English';
-  renderChips(); renderProfiles(); renderHistory();
+  renderChips(); renderProfiles(); renderHistory(); renderBadges();
 }
 document.getElementById('langBtn').onclick = () => {
   lang = lang === 'en' ? 'th' : 'en';
@@ -580,6 +725,7 @@ const P = () => profiles[activeP];
 function saveState() {
   localStorage.setItem('sb_profiles', JSON.stringify(profiles));
   localStorage.setItem('sb_activeP', String(activeP));
+  checkBadges();
 }
 function profileName(p) { return p.name || t('me'); }
 
@@ -822,6 +968,10 @@ function showResult(type, title, desc, opts = {}) {
     } catch (e) {}
   };
   if (type === 'danger' && navigator.vibrate) navigator.vibrate([150, 60, 150]);
+  if (type === 'safe') { mood('happy'); confetti(); }
+  else if (type === 'danger') { mood('scared'); alarm(); }
+  else if (type === 'warn') mood('worry');
+  else mood('meh');
   if (voiceOn) speak(`${title}. ${opts.hits && opts.hits.length ? opts.hits.join(', ') : desc}`);
   r.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -863,6 +1013,133 @@ function analyze(ingredientsText, offTags, tracesTags, product, barcode, record 
   }
 }
 
+// ================= fun: mascot, confetti, streaks, badges =================
+const REDUCE = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const mascotEl = document.getElementById('mascot');
+let moodTimer = null;
+
+// mood is one of: idle | happy | scared | worry | meh
+function mood(m, hold = 3000) {
+  mascotEl.className = 'mascot ' + m;
+  clearTimeout(moodTimer);
+  if (m !== 'idle') moodTimer = setTimeout(() => { mascotEl.className = 'mascot idle'; }, hold);
+}
+
+const CONFETTI = ['#4ade80', '#22d3ee', '#fbbf24', '#f472b6', '#a78bfa', '#eef2f9'];
+function confetti(n = 46) {
+  if (REDUCE) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'confetti';
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('i');
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.background = CONFETTI[(Math.random() * CONFETTI.length) | 0];
+    p.style.animationDuration = (1.5 + Math.random() * 1.5).toFixed(2) + 's';
+    p.style.animationDelay = (Math.random() * .45).toFixed(2) + 's';
+    if (Math.random() < .3) p.style.borderRadius = '50%';
+    wrap.appendChild(p);
+  }
+  document.body.appendChild(wrap);
+  setTimeout(() => wrap.remove(), 3600);
+}
+
+// red flash + screen shake for a danger result
+function alarm() {
+  if (REDUCE) return;
+  const f = document.createElement('div');
+  f.className = 'flash';
+  document.body.appendChild(f);
+  setTimeout(() => f.remove(), 850);
+  const c = document.querySelector('.container');
+  c.classList.remove('shake');
+  void c.offsetWidth; // restart the animation
+  c.classList.add('shake');
+  setTimeout(() => c.classList.remove('shake'), 600);
+}
+
+function toast(icon, title, sub) {
+  let wrap = document.querySelector('.toast-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'toast-wrap';
+    document.body.appendChild(wrap);
+  }
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<span class="ti">${icon}</span><span><span class="tt">${title}</span>${sub ? `<br><span class="ts">${sub}</span>` : ''}</span>`;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+const BADGES = [
+  { id: 'first',   icon: '🌱',      en: 'First Bite',      th: 'ก้าวแรก',        den: 'Check your first food',  dth: 'เช็คอาหารครั้งแรก',        won: g => stats.checks >= 1 },
+  { id: 'reader',  icon: '🔍',      en: 'Label Reader',    th: 'นักอ่านฉลาก',    den: 'Check 10 foods',         dth: 'เช็คอาหารครบ 10 อย่าง',    won: g => stats.checks >= 10 },
+  { id: 'sleuth',  icon: '🥜',      en: 'Allergen Sleuth', th: 'นักสืบสารก่อภูมิแพ้', den: 'Catch 5 dangers',   dth: 'จับสิ่งที่แพ้ได้ 5 ครั้ง',  won: g => stats.dangers >= 5 },
+  { id: 'guard',   icon: '🛡️',      en: 'Guardian',        th: 'ผู้พิทักษ์',      den: 'Check 25 foods',         dth: 'เช็คอาหารครบ 25 อย่าง',    won: g => stats.checks >= 25 },
+  { id: 'streak3', icon: '🔥',      en: 'On a Roll',       th: 'ติดลม',          den: '3-day streak',           dth: 'เช็คต่อเนื่อง 3 วัน',       won: g => g.streak >= 3 },
+  { id: 'streak7', icon: '📅',      en: 'Week Warrior',    th: 'ครบสัปดาห์',     den: '7-day streak',           dth: 'เช็คต่อเนื่อง 7 วัน',       won: g => g.streak >= 7 },
+  { id: 'family',  icon: '👨‍👩‍👧', en: 'Family Guard',    th: 'ดูแลทั้งบ้าน',   den: 'Add a second person',    dth: 'เพิ่มคนที่สองในโปรไฟล์',   won: g => profiles.length >= 2 },
+  { id: 'century', icon: '💯',      en: 'Century',         th: 'ร้อยเต็ม',       den: 'Check 100 foods',        dth: 'เช็คอาหารครบ 100 อย่าง',   won: g => stats.checks >= 100 },
+];
+
+let game = JSON.parse(localStorage.getItem('sb_game') || '{"streak":0,"lastDay":"","badges":[]}');
+const saveGame = () => localStorage.setItem('sb_game', JSON.stringify(game));
+const dayKey = d => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+
+// the stored streak only still counts if the last check was today or yesterday
+function liveStreak() {
+  const today = dayKey(new Date()), yest = dayKey(new Date(Date.now() - 864e5));
+  return (game.lastDay === today || game.lastDay === yest) ? game.streak : 0;
+}
+
+function touchStreak() {
+  const today = dayKey(new Date()), yest = dayKey(new Date(Date.now() - 864e5));
+  if (game.lastDay === today) return;
+  game.streak = game.lastDay === yest ? game.streak + 1 : 1;
+  game.lastDay = today;
+  saveGame();
+  if (game.streak > 1) toast('🔥', t('streakTitle', { n: game.streak }), t('streakSub'));
+}
+
+function renderBadges() {
+  const grid = document.getElementById('badgeGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  BADGES.forEach(b => {
+    const on = game.badges.includes(b.id);
+    const d = document.createElement('div');
+    d.className = 'ach' + (on ? ' on' : '');
+    d.dataset.b = b.id;
+    d.innerHTML = `<div class="ai">${b.icon}</div><div class="an">${lang === 'th' ? b.th : b.en}</div>`;
+    d.onclick = () => toast(on ? b.icon : '🔒', lang === 'th' ? b.th : b.en, lang === 'th' ? b.dth : b.den);
+    grid.appendChild(d);
+  });
+  document.getElementById('badgeCount').textContent = `${game.badges.length}/${BADGES.length}`;
+}
+
+function checkBadges(announce = true) {
+  const g = { streak: liveStreak() };
+  const fresh = BADGES.filter(b => !game.badges.includes(b.id) && b.won(g));
+  if (!fresh.length) return;
+  fresh.forEach(b => game.badges.push(b.id));
+  saveGame();
+  renderBadges();
+  if (!announce) return;
+  fresh.forEach((b, i) => setTimeout(() => {
+    toast(b.icon, t('newBadge'), lang === 'th' ? b.th : b.en);
+    confetti(22);
+    const el = document.querySelector(`.ach[data-b="${b.id}"]`);
+    if (el) { el.classList.add('pop'); setTimeout(() => el.classList.remove('pop'), 700); }
+  }, 800 + i * 950));
+}
+
+// poke the mascot for a pep talk
+mascotEl.onclick = () => {
+  mood('happy', 1600);
+  const lines = T[lang].pep;
+  toast('🛡️', T[lang].mascotName, lines[(Math.random() * lines.length) | 0]);
+};
+
 // ================= stats =================
 let stats = JSON.parse(localStorage.getItem('sb_stats') || '{"checks":0,"dangers":0,"safe":0}');
 function bumpStats(kind) {
@@ -870,12 +1147,15 @@ function bumpStats(kind) {
   if (kind === 'danger') stats.dangers++;
   if (kind === 'safe') stats.safe++;
   localStorage.setItem('sb_stats', JSON.stringify(stats));
+  touchStreak();
   renderStats();
+  checkBadges();
 }
 function renderStats() {
   document.getElementById('statChecks').textContent = stats.checks;
   document.getElementById('statDangers').textContent = stats.dangers;
   document.getElementById('statSafe').textContent = stats.safe;
+  document.getElementById('statStreak').textContent = liveStreak();
 }
 renderStats();
 
@@ -1058,22 +1338,22 @@ let torchOn = false;
 const torchBtn = document.getElementById('torchBtn');
 const captureBtn = document.getElementById('captureBtn');
 
-// only product barcode formats (+ QR) — fewer formats = faster, more accurate decoding
-const SCAN_CONFIG = {
-  formatsToSupport: [
-    Html5QrcodeSupportedFormats.EAN_13,
-    Html5QrcodeSupportedFormats.EAN_8,
-    Html5QrcodeSupportedFormats.UPC_A,
-    Html5QrcodeSupportedFormats.UPC_E,
-    Html5QrcodeSupportedFormats.CODE_128,
-    Html5QrcodeSupportedFormats.CODE_39,
-    Html5QrcodeSupportedFormats.ITF,
-    Html5QrcodeSupportedFormats.QR_CODE,
-  ],
-  // use the phone's native barcode detector when available — much more accurate
-  experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-  verbose: false,
-};
+// Only product barcode formats (+ QR) — fewer formats = faster, more accurate decoding.
+// Built lazily: the scanner library is a CDN script, so reading its constants at load
+// time would kill the whole app (allergy checks included) whenever the CDN is
+// unreachable — exactly the offline case this PWA is meant to survive.
+function scanConfig() {
+  const cfg = {
+    // use the phone's native barcode detector when available — much more accurate
+    experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+    verbose: false,
+  };
+  if (typeof Html5QrcodeSupportedFormats !== 'undefined') {
+    const F = Html5QrcodeSupportedFormats;
+    cfg.formatsToSupport = [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE];
+  }
+  return cfg;
+}
 
 function hideTorch() {
   torchOn = false;
@@ -1114,7 +1394,7 @@ captureBtn.onclick = async () => {
   cv.getContext('2d').drawImage(video, 0, 0);
   const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.95));
   const file = new File([blob], 'capture.jpg', { type: 'image/jpeg' });
-  const tmp = new Html5Qrcode('fileReader', SCAN_CONFIG);
+  const tmp = new Html5Qrcode('fileReader', scanConfig());
   try {
     const res = await (tmp.scanFileV2 ? tmp.scanFileV2(file, false) : tmp.scanFile(file, false));
     const text = res && res.decodedText ? res.decodedText : res;
@@ -1134,7 +1414,7 @@ document.getElementById('scanBtn').onclick = async () => {
     await stopScanner();
     return;
   }
-  scanner = new Html5Qrcode('reader', SCAN_CONFIG);
+  scanner = new Html5Qrcode('reader', scanConfig());
   btn.textContent = t('closeCam');
   try {
     await scanner.start(
@@ -1256,6 +1536,7 @@ if ('serviceWorker' in navigator) {
 
 // ================= init =================
 applyLang();
+checkBadges(false); // backfill anything already earned, quietly
 // support home-screen shortcut deep links: ?mode=scan|search|text
 const startMode = new URLSearchParams(location.search).get('mode');
 if (startMode) {
