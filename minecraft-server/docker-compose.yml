@@ -1,0 +1,87 @@
+## Minecraft Bedrock Dedicated Server
+##
+## This is the PRIMARY setup: a real Bedrock server, the same software Mojang
+## ships. Phones, tablets, Windows 10/11, Xbox, PlayStation and Switch all
+## connect to it natively.
+##
+## On Oracle's free ARM VM, Mojang's x86-only binary is translated at runtime by
+## box64 (built into the image). This works on Ubuntu. It does NOT work on
+## Oracle Linux / AlmaLinux, whose ARM kernels use 64k memory pages that box64
+## cannot handle. Use Ubuntu.
+##
+## Start:   docker compose up -d
+## Logs:    docker compose logs -f
+## Console: docker attach mc-bedrock       (detach with Ctrl-P then Ctrl-Q)
+## Stop:    docker compose down
+
+services:
+  bedrock:
+    image: itzg/minecraft-bedrock-server:latest
+    container_name: mc-bedrock
+    restart: unless-stopped
+
+    # Keeps the server console attachable so you can run commands live.
+    stdin_open: true
+    tty: true
+
+    ports:
+      # Bedrock is UDP, not TCP. This is the single most common setup mistake.
+      - "19132:19132/udp"
+
+    environment:
+      EULA: "TRUE"
+      TZ: ${TZ:-Asia/Bangkok}
+
+      # LATEST auto-updates on restart. Pin a version like 1.21.44.01 if an
+      # update ever breaks something and you need to roll back.
+      VERSION: ${VERSION:-LATEST}
+
+      SERVER_NAME: ${SERVER_NAME:-SafeBite SMP}
+      LEVEL_NAME: ${LEVEL_NAME:-world}
+      LEVEL_SEED: ${LEVEL_SEED:-}
+      GAMEMODE: ${GAMEMODE:-survival}
+      DIFFICULTY: ${DIFFICULTY:-normal}
+      ALLOW_CHEATS: ${ALLOW_CHEATS:-true}
+      MAX_PLAYERS: ${MAX_PLAYERS:-10}
+
+      # Requires a real Xbox Live login. Keep this true — with it false, anyone
+      # who learns the IP can join as any username they like.
+      ONLINE_MODE: "true"
+
+      # The allowlist is what actually keeps strangers out. Off by default
+      # because an empty allowlist would lock you out too — turn it on in .env
+      # once everyone has joined once. See .env and README.
+      ALLOW_LIST: ${ALLOW_LIST:-false}
+      ALLOW_LIST_USERS: ${ALLOW_LIST_USERS:-}
+      OPS: ${OPS:-}
+
+      # 12 is plenty for two players and keeps the 2-core VM comfortable.
+      # Raise toward 16-20 only if the world feels cramped; watch CPU after.
+      VIEW_DISTANCE: ${VIEW_DISTANCE:-12}
+      TICK_DISTANCE: ${TICK_DISTANCE:-4}
+
+      SERVER_PORT: "19132"
+
+    volumes:
+      # The world lives here. Back this directory up — see backup.sh.
+      - ./data:/data
+
+    healthcheck:
+      test: ["CMD", "mc-monitor", "status-bedrock", "--host", "localhost", "--port", "19132"]
+      interval: 60s
+      start_period: 5m
+      timeout: 20s
+      retries: 3
+
+    # Leaves headroom on a 2 OCPU / 12 GB free-tier VM so a runaway server
+    # can't make the box unreachable over SSH.
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

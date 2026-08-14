@@ -1,0 +1,7 @@
+# Your actual settings — may contain your gamertag/XUID. Keep it local.
+.env
+
+# World data and backups live on the server, not in git.
+data/
+data-geyser/
+backups/

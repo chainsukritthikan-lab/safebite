@@ -1,0 +1,79 @@
+## FALLBACK: Paper (Java Edition) + Geyser + Floodgate
+##
+## Use this ONLY if docker-compose.yml crashes on startup with an "illegal
+## instruction" / SIGILL error. That means box64 could not translate Mojang's
+## x86 Bedrock binary on your particular ARM chip.
+##
+## This runs a Java-Edition server instead, which is native ARM code and cannot
+## hit that problem, and puts Geyser in front of it so Bedrock devices still
+## join normally on UDP 19132. Floodgate means your friend does NOT need to buy
+## a Java account — their Xbox login works.
+##
+## Tradeoff: the world is a Java world, so a few Bedrock-only things differ
+## (some redstone timings, marketplace skins/capes, split-screen). Day-to-day
+## survival play feels the same.
+##
+## Start:   docker compose -f docker-compose.geyser.yml up -d
+## Console: docker exec -i mc-geyser rcon-cli
+##
+## NOTE: the two setups keep separate worlds (./data vs ./data-geyser) and both
+## want UDP 19132, so run one or the other — never both at once.
+
+services:
+  paper:
+    image: itzg/minecraft-server:latest
+    container_name: mc-geyser
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+    ports:
+      - "19132:19132/udp"   # Bedrock players (via Geyser)
+      - "25565:25565/tcp"   # Java players, if you ever want them
+
+    environment:
+      EULA: "TRUE"
+      TZ: ${TZ:-Asia/Bangkok}
+
+      TYPE: "PAPER"
+      VERSION: ${JAVA_VERSION:-LATEST}
+
+      # Leaves room for the JVM's own off-heap usage on a 12 GB VM.
+      MEMORY: ${JAVA_MEMORY:-4G}
+      USE_AIKAR_FLAGS: "true"
+
+      MOTD: ${SERVER_NAME:-SafeBite SMP}
+      LEVEL: ${LEVEL_NAME:-world}
+      SEED: ${LEVEL_SEED:-}
+      MODE: ${GAMEMODE:-survival}
+      DIFFICULTY: ${DIFFICULTY:-normal}
+      MAX_PLAYERS: ${MAX_PLAYERS:-10}
+      VIEW_DISTANCE: ${VIEW_DISTANCE:-12}
+      ONLINE_MODE: "true"
+
+      # Java-side allowlist. Bedrock players appear here with a "." prefix,
+      # e.g. Xbox gamertag "CoolFriend" becomes ".CoolFriend".
+      # Off by default for the same reason as the Bedrock setup: an empty
+      # whitelist locks everyone out. Fill JAVA_WHITELIST in .env, then flip
+      # ENFORCE_WHITELIST to true.
+      ENFORCE_WHITELIST: ${ENFORCE_WHITELIST:-false}
+      WHITELIST: ${JAVA_WHITELIST:-}
+      OPS: ${JAVA_OPS:-}
+
+      PLUGINS: |
+        https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/spigot
+        https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/spigot
+
+    volumes:
+      - ./data-geyser:/data
+
+    deploy:
+      resources:
+        limits:
+          memory: 7G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
