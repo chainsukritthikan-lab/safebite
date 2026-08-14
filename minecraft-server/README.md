@@ -6,7 +6,9 @@ not. It runs on Oracle Cloud's Always Free tier, so the ongoing cost is **฿0**
 
 Works on **phone, tablet, Windows 10/11, Xbox, PlayStation and Switch**.
 
-**Time to set up:** about 30 minutes, most of it waiting on Oracle.
+**Time to set up:** about 15 minutes using the paste-in installer
+([`cloud-init.yaml`](cloud-init.yaml), see Step 4), or ~30 doing it by hand.
+Most of that is Oracle's signup form, not Minecraft.
 
 ---
 
@@ -122,6 +124,19 @@ next step handles that one for you.
 ---
 
 ## Step 4 — Install and start the server
+
+> ### 🚀 Shortcut: skip this step entirely
+>
+> If you paste **[`cloud-init.yaml`](cloud-init.yaml)** into Oracle's
+> *Show advanced options → Management → Initialization script* box while
+> creating the VM in Step 2, the server installs itself as the machine boots.
+> Edit the two `EDIT ME` lines first (server name, your gamertag).
+>
+> No SSH, no terminal, no commands. Wait ~5 minutes after the instance says
+> RUNNING, then go straight to Step 5 and connect. You'd only come back here if
+> something didn't work.
+
+### The manual way
 
 SSH in from your computer (Terminal on Mac/Linux, PowerShell on Windows):
 
@@ -306,6 +321,7 @@ next-best always-on options:
 
 | File | Purpose |
 |---|---|
+| `cloud-init.yaml` | **Easiest path** — paste into Oracle at VM creation, installs itself. |
 | `docker-compose.yml` | The Bedrock server. This is the main one. |
 | `docker-compose.geyser.yml` | Fallback if box64 fails on your ARM chip. |
 | `.env.example` | Settings template — copy to `.env` and edit. |

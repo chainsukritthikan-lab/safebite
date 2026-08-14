@@ -63,9 +63,17 @@ https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_C
   $SUDO apt-get install -y \
     docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-  $SUDO usermod -aG docker "$USER"
-  warn "Added $USER to the docker group. Log out and back in for it to apply,"
-  warn "or just use 'sudo docker ...' for the rest of this session."
+  # $USER is not set when this runs from a cloud-init startup script, so fall
+  # back to the real user, and never let this step abort the install.
+  TARGET_USER="${USER:-$(id -un)}"
+  if [[ "$TARGET_USER" == "root" ]] && id ubuntu >/dev/null 2>&1; then
+    TARGET_USER="ubuntu"   # so you can run docker without sudo when you SSH in
+  fi
+  if id "$TARGET_USER" >/dev/null 2>&1; then
+    $SUDO usermod -aG docker "$TARGET_USER" || warn "Could not add $TARGET_USER to the docker group."
+    warn "Added $TARGET_USER to the docker group. Log out and back in for it to"
+    warn "apply, or just use 'sudo docker ...' for now."
+  fi
 fi
 
 $SUDO systemctl enable --now docker

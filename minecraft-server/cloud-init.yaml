@@ -1,0 +1,150 @@
+#cloud-config
+#
+# ===========================================================================
+#  ONE-PASTE MINECRAFT BEDROCK SERVER
+# ===========================================================================
+#
+#  Edit the two lines marked EDIT ME below, then paste this whole file into
+#  Oracle's instance creation page:
+#
+#      Create Instance -> Show advanced options -> Management tab
+#      -> Initialization script -> Paste cloud-init script
+#
+#  The server installs itself while the VM boots. No SSH, no commands.
+#  Give it about 5 minutes after the instance reaches RUNNING, then connect.
+#
+#  You still have to add the UDP 19132 ingress rule in the Oracle console --
+#  that lives outside the VM, so a startup script cannot do it. See README
+#  Step 3. It is about four clicks.
+# ===========================================================================
+
+write_files:
+
+  # ------------------------------------------------------------- settings ---
+  - path: /opt/minecraft/.env
+    permissions: '0644'
+    content: |
+      # >>>>>>>>>>>>>>>>>>>>>>>>>>> EDIT ME <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+      SERVER_NAME=SafeBite SMP
+      OPS=YourGamertagHere
+      # >>>>>>>>>>>>>>>>>>>>>>>>>>> EDIT ME <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+      #
+      # OPS is your Xbox gamertag -- it gives you admin commands in game.
+      # Everything below is a sensible default; change later if you want.
+
+      LEVEL_NAME=world
+      TZ=Asia/Bangkok
+      GAMEMODE=survival
+      DIFFICULTY=normal
+      MAX_PLAYERS=10
+      LEVEL_SEED=
+      ALLOW_CHEATS=true
+      VIEW_DISTANCE=12
+      TICK_DISTANCE=4
+      VERSION=LATEST
+
+      # Starts off so you are not locked out of your own server. Turn it on
+      # after you and your friend have both joined once -- README Step 6.
+      ALLOW_LIST=false
+      ALLOW_LIST_USERS=
+
+  # --------------------------------------------------------------- server ---
+  - path: /opt/minecraft/docker-compose.yml
+    permissions: '0644'
+    content: |
+      services:
+        bedrock:
+          image: itzg/minecraft-bedrock-server:latest
+          container_name: mc-bedrock
+          restart: unless-stopped
+          stdin_open: true
+          tty: true
+          ports:
+            - "19132:19132/udp"
+          environment:
+            EULA: "TRUE"
+            TZ: ${TZ:-Asia/Bangkok}
+            VERSION: ${VERSION:-LATEST}
+            SERVER_NAME: ${SERVER_NAME:-Minecraft}
+            LEVEL_NAME: ${LEVEL_NAME:-world}
+            LEVEL_SEED: ${LEVEL_SEED:-}
+            GAMEMODE: ${GAMEMODE:-survival}
+            DIFFICULTY: ${DIFFICULTY:-normal}
+            ALLOW_CHEATS: ${ALLOW_CHEATS:-true}
+            MAX_PLAYERS: ${MAX_PLAYERS:-10}
+            ONLINE_MODE: "true"
+            ALLOW_LIST: ${ALLOW_LIST:-false}
+            ALLOW_LIST_USERS: ${ALLOW_LIST_USERS:-}
+            OPS: ${OPS:-}
+            VIEW_DISTANCE: ${VIEW_DISTANCE:-12}
+            TICK_DISTANCE: ${TICK_DISTANCE:-4}
+            SERVER_PORT: "19132"
+          volumes:
+            - ./data:/data
+          healthcheck:
+            test: ["CMD", "mc-monitor", "status-bedrock", "--host", "localhost", "--port", "19132"]
+            interval: 60s
+            start_period: 5m
+            timeout: 20s
+            retries: 3
+          deploy:
+            resources:
+              limits:
+                memory: 6G
+          logging:
+            driver: json-file
+            options:
+              max-size: "10m"
+              max-file: "3"
+
+  # -------------------------------------------------------------- backups ---
+  - path: /opt/minecraft/backup.sh
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      # Nightly world backup, 14-day retention. Server pauses a few seconds
+      # so the snapshot cannot be caught mid-save.
+      set -euo pipefail
+      cd /opt/minecraft
+      mkdir -p backups
+      [[ -d data ]] || { echo "[$(date)] nothing to back up"; exit 0; }
+      ARCHIVE="backups/world_$(date +%Y-%m-%d_%H%M%S).tar.gz"
+      RUNNING=0
+      docker ps --format '{{.Names}}' | grep -q '^mc-bedrock$' && RUNNING=1
+      [[ $RUNNING == 1 ]] && docker compose stop
+      tar -czf "$ARCHIVE" data
+      [[ $RUNNING == 1 ]] && docker compose start
+      find backups -name 'world_*.tar.gz' -mtime +14 -print -delete
+      echo "[$(date)] backed up to $ARCHIVE ($(du -h "$ARCHIVE" | cut -f1))"
+
+runcmd:
+  # --- Docker ---------------------------------------------------------------
+  - [ bash, -c, "install -m 0755 -d /etc/apt/keyrings" ]
+  - [ bash, -c, "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg" ]
+  - [ bash, -c, "chmod a+r /etc/apt/keyrings/docker.gpg" ]
+  - [ bash, -c, "echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable\" > /etc/apt/sources.list.d/docker.list" ]
+  - [ bash, -c, "apt-get update -y" ]
+  - [ bash, -c, "DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" ]
+  - [ bash, -c, "usermod -aG docker ubuntu || true" ]
+  - [ bash, -c, "systemctl enable --now docker" ]
+
+  # --- Firewall inside the VM (the Oracle console rule is still needed) -----
+  - [ bash, -c, "iptables -I INPUT 6 -p udp --dport 19132 -j ACCEPT || iptables -I INPUT -p udp --dport 19132 -j ACCEPT" ]
+  - [ bash, -c, "echo 'iptables-persistent iptables-persistent/autosave_v4 boolean false' | debconf-set-selections" ]
+  - [ bash, -c, "echo 'iptables-persistent iptables-persistent/autosave_v6 boolean false' | debconf-set-selections" ]
+  - [ bash, -c, "DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent" ]
+  - [ bash, -c, "netfilter-persistent save || true" ]
+
+  # --- A little swap, so a memory spike cannot kill the server --------------
+  - [ bash, -c, "fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile" ]
+  - [ bash, -c, "grep -q /swapfile /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab" ]
+
+  # --- Start it, and schedule nightly backups ------------------------------
+  - [ bash, -c, "chown -R ubuntu:ubuntu /opt/minecraft" ]
+  - [ bash, -c, "cd /opt/minecraft && docker compose up -d" ]
+  - [ bash, -c, "( crontab -l 2>/dev/null; echo '0 5 * * * /opt/minecraft/backup.sh >> /opt/minecraft/backups/backup.log 2>&1' ) | crontab -" ]
+
+  # --- Leave a note confirming it finished ---------------------------------
+  - [ bash, -c, "echo \"Minecraft server installed $(date). Files in /opt/minecraft\" > /opt/minecraft/INSTALLED.txt" ]
+
+final_message: "Minecraft server ready after $UPTIME seconds. Connect on UDP 19132."
