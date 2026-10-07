@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#141821">
+<meta name="description" content="Pocket Party — party games for friends in the same room. Scan the QR code and play in your browser. No app, no sign-up.">
+<meta property="og:title" content="Pocket Party 🎮">
+<meta property="og:description" content="Scan the QR, join instantly, race and battle your friends.">
+<title>Pocket Party</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=DM+Mono:wght@400;500&family=Noto+Sans+Thai:wght@400;600&display=swap">
+<style>
+/* Layout: phone-first. Menu screens are one scrolling column; game screens take the whole viewport. */
+:root{
+  --ink:#141821; --sheet:#1d2230; --line:#323a4f; --fg:#f5f3ea; --mute:#a3a9bb;
+  --sun:#ffcf33; --red:#ff3d5a; --go:#3ee07f; --blue:#3fa7ff;
+  --display:"Russo One","Noto Sans Thai",system-ui,sans-serif;
+  --body:"Noto Sans Thai",system-ui,-apple-system,sans-serif;
+  --mono:"DM Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--ink);color:var(--fg)}
+body{font-family:var(--body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+.page{min-height:100%;padding-inline:16px;padding-block:calc(16px + env(safe-area-inset-top,0px)) calc(28px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center}
+.col{width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px}
+h1{font-family:var(--display);font-weight:400;font-size:38px;margin:6px 0 0;line-height:1}
+h1 span{color:var(--sun)}
+h2{font-family:var(--display);font-weight:400;font-size:22px;margin:0;line-height:1.15}
+.tag{color:var(--mute);margin:0}
+.card{background:var(--sheet);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.label{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input[type=text]{flex:1 1 140px;min-width:0;background:var(--ink);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font:inherit;font-size:16px}
+input.code{font-family:var(--mono);text-transform:uppercase;letter-spacing:.3em;font-size:20px;flex:1 1 120px}
+input:focus-visible{outline:2px solid var(--sun);outline-offset:1px}
+button{font:inherit;font-weight:600;border:0;border-radius:14px;padding:13px 18px;cursor:pointer;background:var(--sun);color:#1b1500;touch-action:manipulation}
+button.big{width:100%;font-size:18px;padding:16px}
+button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+button.small{padding:7px 12px;font-size:13px;border-radius:10px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.or{display:flex;align-items:center;gap:10px;color:var(--mute);font-size:13px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:36px;height:36px;padding:0;border-radius:50%;border:3px solid transparent}
+.sw.sel{border-color:var(--fg)}
+.err{color:var(--red);margin:0;font-size:14px}
+.note{color:var(--mute);font-size:13px;margin:0}
+.qrbox{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+#qr{background:#fff;padding:8px;border-radius:14px;line-height:0;flex:none}
+#qr img{width:170px;height:170px;image-rendering:pixelated}
+.qrtext{flex:1 1 170px;min-width:0;display:flex;flex-direction:column;gap:6px}
+.bigcode{font-family:var(--mono);font-size:34px;font-weight:500;letter-spacing:.2em;color:var(--sun);line-height:1}
+.link{font-family:var(--mono);font-size:11px;color:var(--mute);word-break:break-all}
+ol.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+ol.list li{display:grid;grid-template-columns:26px 14px 1fr auto;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;background:var(--ink)}
+ol.list li.me{outline:1px solid var(--sun)}
+.pos{font-family:var(--mono);color:var(--mute);font-variant-numeric:tabular-nums}
+ol.ranked li:first-child .pos{color:var(--sun)}
+.cdot{width:12px;height:12px;border-radius:50%}
+.nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tm{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--mute)}
+.games{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.game{background:var(--ink);color:var(--fg);border:2px solid var(--line);border-radius:16px;padding:14px;text-align:left;display:flex;flex-direction:column;gap:4px;font-weight:400}
+.game b{font-family:var(--display);font-weight:400;font-size:18px}
+.game span{color:var(--mute);font-size:13px}
+.game .ic{font-size:28px;line-height:1}
+.game.sel{border-color:var(--sun);background:#262b1e}
+.status{font-family:var(--mono);font-size:12px;color:var(--mute);display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--go)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+
+/* full-screen game layers */
+.full{position:fixed;inset:0;overflow:hidden;background:var(--ink)}
+.bar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:calc(10px + env(safe-area-inset-top,0px)) 12px 0;pointer-events:none;z-index:2}
+.bar>*{pointer-events:auto}
+.chipbox{background:rgba(20,24,33,.82);border-radius:12px;padding:6px 12px;display:flex;flex-direction:column}
+.chipbox .k{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.chipbox .v{font-family:var(--display);font-size:21px;line-height:1.1;font-variant-numeric:tabular-nums}
+.grow{flex:1}
+
+/* rally */
+#rally{background:#5fae4b}
+#cv{display:block;width:100%;height:100%;touch-action:none}
+.count{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;font-family:var(--display);font-size:clamp(90px,30vw,180px);color:var(--sun);text-shadow:0 6px 0 rgba(0,0,0,.35)}
+.pads{position:absolute;left:0;right:0;bottom:0;display:flex;gap:12px;padding:12px 12px calc(14px + env(safe-area-inset-bottom,0px))}
+.pad{flex:1;height:100px;border-radius:20px;background:rgba(20,24,33,.45);border:2px solid rgba(245,243,234,.35);color:var(--fg);font-family:var(--display);font-size:34px;display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none;-webkit-user-select:none}
+.pad.on{background:rgba(255,207,51,.55);border-color:var(--sun)}
+.pad.brake{flex:0 0 86px;font-size:15px}
+.finish{position:absolute;left:12px;right:12px;top:40%;text-align:center;font-family:var(--display);font-size:28px;text-shadow:0 3px 0 rgba(0,0,0,.4);pointer-events:none}
+
+/* tap rush */
+#tapPad{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;padding:24px;user-select:none;-webkit-user-select:none;touch-action:manipulation;cursor:pointer;background:var(--sheet);transition:background .06s}
+#tapPad .bigt{font-family:var(--display);font-size:clamp(48px,15vw,90px);line-height:.95}
+#tapPad .ms{font-family:var(--mono);font-size:clamp(44px,13vw,72px);font-weight:500;font-variant-numeric:tabular-nums}
+#tapPad .sub{color:var(--mute);max-width:30ch}
+#tapPad.wait{background:var(--red);color:#1a0006}
+#tapPad.wait .sub{color:#4a0012}
+#tapPad.go{background:var(--go);color:#00240f}
+#tapPad.go .sub{color:#00451d}
+
+/* math */
+#math .inner{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:22px;padding:calc(80px + env(safe-area-inset-top,0px)) 16px calc(24px + env(safe-area-inset-bottom,0px));max-width:560px;margin:0 auto}
+.q{font-family:var(--display);font-size:clamp(46px,14vw,80px);text-align:center;line-height:1;font-variant-numeric:tabular-nums}
+.timebar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.timebar i{display:block;height:100%;background:var(--sun);width:100%;transform-origin:left}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.choices button{font-family:var(--display);font-weight:400;font-size:clamp(26px,8vw,40px);padding:22px 8px;border-radius:18px;color:#fff}
+.choices button:nth-child(1){background:#e2445c}.choices button:nth-child(2){background:#2f80ed}
+.choices button:nth-child(3){background:#e8a317}.choices button:nth-child(4){background:#27ae60}
+.choices button.dim{opacity:.3}
+.choices button.right{outline:4px solid var(--fg)}
+.mathmsg{text-align:center;font-family:var(--display);font-size:22px;min-height:1.3em}
+
+/* results */
+#results{z-index:5;background:rgba(20,24,33,.94);overflow-y:auto}
+#results .page{min-height:auto}
+@media (prefers-reduced-motion:reduce){#tapPad{transition:none}}
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<section id="home" class="page">
+  <div class="col">
+    <div>
+      <h1>Pocket<span>Party</span></h1>
+      <p class="tag" style="margin-top:8px">Party games for friends in the same room. Scan, join and play right in the browser. No app, no sign-up. · สแกนแล้วเล่นได้เลย ไม่ต้องโหลดแอป</p>
+    </div>
+    <div class="card">
+      <div class="label">Your name · ชื่อของคุณ</div>
+      <input type="text" id="nameIn" maxlength="14" placeholder="e.g. Chain" autocomplete="nickname">
+      <div class="label">Your colour</div>
+      <div class="swatches" id="swatches"></div>
+    </div>
+    <div class="card" id="joinCard">
+      <div class="label">Join a party</div>
+      <div class="row">
+        <input type="text" class="code" id="codeIn" maxlength="4" placeholder="CODE" autocomplete="off" autocapitalize="characters">
+        <button id="joinBtn">Join</button>
+      </div>
+      <div class="or">or</div>
+      <button class="ghost big" id="hostBtn">Host a party on this phone</button>
+      <p class="err" id="homeErr" hidden></p>
+      <p class="note" id="homeNote"></p>
+    </div>
+  </div>
+</section>
+
+<!-- LOBBY -->
+<section id="lobby" class="page" hidden>
+  <div class="col">
+    <div class="top">
+      <h2 id="lobbyTitle">Party</h2>
+      <div class="status"><span class="dot"></span><span id="lobbyStatus"></span></div>
+    </div>
+
+    <div class="card" id="qrCard" hidden>
+      <div class="qrbox">
+        <div id="qr"></div>
+        <div class="qrtext">
+          <span class="label">Scan to join · สแกนเพื่อเข้าร่วม</span>
+          <span class="bigcode" id="bigCode">----</span>
+          <span class="note">Or open the site and type the code.</span>
+          <span class="link" id="linkTxt"></span>
+          <div class="row"><button class="ghost small" id="copyBtn">Copy link</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label" id="playersLbl">Players</div>
+      <ol class="list ranked" id="playerList"></ol>
+    </div>
+
+    <div class="card" id="pickCard" hidden>
+      <div class="label">Pick a game</div>
+      <div class="games" id="games"></div>
+      <button class="big" id="startBtn">Start</button>
+    </div>
+    <div class="card" id="waitCard" hidden>
+      <h2 id="waitTitle">Waiting for the host…</h2>
+      <p class="note" id="waitNote">The host picks the game. Keep this screen open.</p>
+    </div>
+    <button class="ghost" id="leaveBtn">Leave</button>
+  </div>
+</section>
+
+<!-- RALLY -->
+<section id="rally" class="full" hidden>
+  <canvas id="cv"></canvas>
+  <div class="bar">
+    <div class="chipbox"><span class="k">Lap</span><span class="v" id="hLap">1/3</span></div>
+    <div class="chipbox"><span class="k">Pos</span><span class="v" id="hPos">1/1</span></div>
+    <div class="chipbox"><span class="k">Time</span><span class="v" id="hTime">0:00.0</span></div>
+    <div class="grow"></div>
+    <button class="ghost small hostOnly" id="endRaceBtn" style="background:rgba(20,24,33,.8)">End race</button>
+  </div>
+  <div class="count" id="count" hidden></div>
+  <div class="finish" id="finishMsg" hidden></div>
+  <div class="pads">
+    <div class="pad" id="padL" aria-label="Steer left">◀</div>
+    <div class="pad brake" id="padB" aria-label="Brake">BRAKE</div>
+    <div class="pad" id="padR" aria-label="Steer right">▶</div>
+  </div>
+</section>
+
+<!-- TAP RUSH -->
+<section id="tap" class="full" hidden>
+  <div id="tapPad" role="button" tabindex="0">
+    <div class="sub" id="tapRound"></div>
+    <div class="bigt" id="tapBig">Get ready</div>
+    <div class="ms" id="tapMs" hidden></div>
+    <div class="sub" id="tapSub">Tap when the screen turns green. Tap early and you score nothing.</div>
+  </div>
+</section>
+
+<!-- QUICK MATH -->
+<section id="math" class="full" hidden>
+  <div class="bar">
+    <div class="chipbox"><span class="k">Question</span><span class="v" id="mRound">1/7</span></div>
+    <div class="grow"></div>
+    <div class="chipbox"><span class="k">Points</span><span class="v" id="mPts">0</span></div>
+  </div>
+  <div class="inner">
+    <div class="timebar"><i id="mBar"></i></div>
+    <div class="q" id="mQ">7 × 8</div>
+    <div class="choices" id="mChoices"></div>
+    <div class="mathmsg" id="mMsg"></div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section id="results" class="full" hidden>
+  <div class="page">
+    <div class="col">
+      <h1 id="resTitle">Results</h1>
+      <div class="card">
+        <div class="label" id="resLbl">This game</div>
+        <ol class="list ranked" id="resList"></ol>
+      </div>
+      <div class="card">
+        <div class="label">Party points · คะแนนรวม</div>
+        <ol class="list ranked" id="partyList"></ol>
+      </div>
+      <div class="row" id="resHost" hidden>
+        <button id="againBtn" style="flex:1">Play again</button>
+        <button class="ghost" id="lobbyBtn" style="flex:1">Pick another game</button>
+      </div>
+      <p class="note" id="resWait">Waiting for the host to pick the next game…</p>
+    </div>
+  </div>
+</section>
+
+<script src="lib/peerjs.min.js"></script>
+<script src="lib/qrcode.js"></script>
+<script>
+"use strict";
+const PFX = "pocketparty-v1-";
+const COLORS = ["#ff4d4d","#ffcf33","#3fa7ff","#b66bff","#ff8a3d","#2fd6c3","#ff6fb5","#f5f3ea"];
+const GAMES = {
+  rally: { ic: "🏎️", name: "Rally", desc: "3-lap race. Steer and brake." },
+  tap:   { ic: "⚡", name: "Tap Rush", desc: "Fastest tap on green. 5 rounds." },
+  math:  { ic: "🧮", name: "Quick Math", desc: "Fastest right answer. 7 questions." },
+};
+const $ = id => document.getElementById(id);
+const clean = s => String(s || "").replace(/[\u0000-\u001f​-‏‪-‮⁠-⁤﻿<>]/g, "").trim().slice(0, 14);
+const num = v => typeof v === "number" && isFinite(v) ? v : null;
+const fmt = ms => { if (ms == null) return "—"; const s = ms / 1000; return Math.floor(s / 60) + ":" + (s % 60).toFixed(1).padStart(4, "0"); };
+const store = { get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : v; } catch(e){ return d; } }, set(k, v){ try { localStorage.setItem(k, v); } catch(e){} } };
+
+/* ================= identity ================= */
+const ME = { id: null, name: store.get("pp-name", ""), col: (+store.get("pp-col", Math.floor(Math.random() * 8)) || 0) % 8 };
+$("nameIn").value = ME.name;
+function takeName(){ ME.name = clean($("nameIn").value) || "Player " + Math.floor(Math.random() * 90 + 10); $("nameIn").value = ME.name; store.set("pp-name", ME.name); }
+function drawSwatches(){
+  $("swatches").replaceChildren(...COLORS.map((c, i) => { const b = document.createElement("button"); b.className = "sw" + (i === ME.col ? " sel" : ""); b.style.background = c; b.setAttribute("aria-label", "Colour " + (i + 1));
+    b.onclick = () => { ME.col = i; store.set("pp-col", i); drawSwatches(); }; return b; }));
+}
+drawSwatches();
+
+/* ================= screens ================= */
+const SCREENS = ["home", "lobby", "rally", "tap", "math", "results"];
+let screen = "home";
+function show(name){ if (screen === name) return; screen = name; for (const s of SCREENS) $(s).hidden = s !== name; if (name === "rally") resize(); }
+function homeError(msg){ $("homeErr").hidden = !msg; $("homeErr").textContent = msg || ""; }
+
+/* ================= networking ================= */
+let peer = null, conn = null, isHost = false, code = "";
+const conns = new Map();        // host: peerId -> DataConnection
+let S = null;                   // shared state (host is the authority)
+let cars = {};                  // rally: id -> [x,y,a,prog,fin]
+
+function genCode(){ const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let s = ""; for (let i = 0; i < 4; i++) s += A[Math.floor(Math.random() * A.length)]; return s; }
+function joinUrl(){ return location.origin + location.pathname + "?join=" + code; }
+function send(m){ if (isHost) hostHandle("H", m); else if (conn && conn.open) { try { conn.send(m); } catch(e){} } }
+function broadcast(){ const m = { t: "S", S }; for (const c of conns.values()) if (c.open) { try { c.send(m); } catch(e){} } onState(); }
+
+function hostParty(){
+  takeName(); homeError(""); $("hostBtn").disabled = true; $("homeNote").textContent = "Starting party…";
+  code = genCode();
+  peer = new Peer(PFX + code, { debug: 0 });
+  peer.on("open", () => {
+    isHost = true; ME.id = "H";
+    S = { game: "rally", phase: "lobby", rid: "", round: 0, total: 0, players: {}, names: {}, cols: {}, scores: {}, gs: {}, last: {}, grid: [], q: null, delay: 0 };
+    addPlayer("H", ME.name, ME.col);
+    $("hostBtn").disabled = false; $("homeNote").textContent = "";
+    history.replaceState(null, "", location.pathname);
+    drawQR(); broadcast(); keepAwake();
+  });
+  peer.on("connection", c => {
+    c.on("open", () => conns.set(c.peer, c));
+    c.on("data", d => { if (d && typeof d === "object") hostHandle(c.peer, d); });
+    c.on("close", () => { conns.delete(c.peer); if (S && S.players[c.peer]) { delete S.players[c.peer]; delete cars[c.peer]; broadcast(); } });
+  });
+  peer.on("disconnected", () => { if (isHost || S) setTimeout(() => { try { if (peer && peer.disconnected && !peer.destroyed) peer.reconnect(); } catch(e){} }, 1500); });
+  peer.on("error", e => {
+    if (e.type === "unavailable-id" && !isHost) { peer.destroy(); hostParty(); return; }
+    if (!isHost) { $("hostBtn").disabled = false; $("homeNote").textContent = ""; homeError("Couldn't start the party (" + e.type + "). Check your internet and try again."); try { peer.destroy(); } catch(_){} peer = null; }
+  });
+}
+
+function joinParty(c){
+  takeName(); homeError("");
+  code = String(c || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+  if (code.length !== 4) { homeError("Type the 4-letter code shown on the host's screen."); return; }
+  $("joinBtn").disabled = true; $("homeNote").textContent = "Connecting to party " + code + "…";
+  if (peer) { try { peer.destroy(); } catch(e){} }
+  peer = new Peer({ debug: 0 });
+  const giveUp = setTimeout(() => { if (!S) fail("Couldn't reach party " + code + ". Make sure the host still has the party open, then try again."); }, 15000);
+  function fail(msg){ clearTimeout(giveUp); $("joinBtn").disabled = false; $("homeNote").textContent = ""; homeError(msg); try { peer.destroy(); } catch(e){} peer = null; }
+  peer.on("open", id => {
+    ME.id = id;
+    conn = peer.connect(PFX + code, { reliable: true });
+    conn.on("open", () => { conn.send({ t: "hello", name: ME.name, col: ME.col }); });
+    conn.on("data", d => { if (d && d.t === "S") { clearTimeout(giveUp); $("joinBtn").disabled = false; $("homeNote").textContent = ""; S = d.S; keepAwake(); onState(); }
+                           else if (d && d.t === "C") cars = d.c || {}; });
+    conn.on("close", () => { if (S) hostGone(); });
+  });
+  peer.on("disconnected", () => { if (isHost || S) setTimeout(() => { try { if (peer && peer.disconnected && !peer.destroyed) peer.reconnect(); } catch(e){} }, 1500); });
+  peer.on("error", e => { if (e.type === "peer-unavailable") fail("No party with code " + code + ". Check the code on the host's screen."); else if (!S) fail("Connection problem (" + e.type + "). Try again."); });
+}
+function hostGone(){ S = null; conn = null; resetLocal(); show("home"); homeError("The host ended the party or lost connection."); }
+function leave(){ try { if (peer) peer.destroy(); } catch(e){} peer = null; conn = null; S = null; isHost = false; conns.clear(); resetLocal(); show("home"); homeError(""); history.replaceState(null, "", location.pathname); }
+
+/* ================= host authority ================= */
+let ans = {};           // current round answers
+let roundEnd = 0, nextTimer = null, rallyDoneAt = 0;
+function addPlayer(id, name, col){ S.players[id] = 1; S.names[id] = clean(name) || "Player"; S.cols[id] = ((col | 0) % 8 + 8) % 8; if (!(id in S.scores)) S.scores[id] = 0; }
+function hostHandle(id, m){
+  if (!S) return;
+  if (m.t === "hello") { addPlayer(id, m.name, m.col); broadcast(); return; }
+  if (!S.players[id] || S.phase !== "play") return;
+  if (m.t === "tap" && S.game === "tap" && m.rid === S.rid && !(id in ans)) ans[id] = num(m.ms);
+  else if (m.t === "ans" && S.game === "math" && m.rid === S.rid && !(id in ans)) ans[id] = { ms: num(m.ms), ok: m.pick === S.q.ans };
+  else if (m.t === "car" && S.game === "rally" && m.rid === S.rid) cars[id] = [num(m.x) || 0, num(m.y) || 0, num(m.a) || 0, num(m.prog) || 0, num(m.fin)];
+}
+function award(order){ order.forEach((id, i) => { const p = i === 0 ? 3 : i === 1 ? 2 : 1; S.gs[id] = (S.gs[id] || 0) + p; S.scores[id] = (S.scores[id] || 0) + p; }); }
+function startGame(g){
+  clearTimeout(nextTimer);
+  S.game = g; S.round = 0; S.gs = {}; S.last = {}; cars = {};
+  for (const id in S.players) S.gs[id] = 0;
+  S.total = g === "tap" ? 5 : g === "math" ? 7 : 1;
+  nextRound();
+}
+function nextRound(){
+  S.round++; S.phase = "play"; S.rid = Math.random().toString(36).slice(2, 8); ans = {}; S.last = {};
+  if (S.game === "tap") { S.delay = 1500 + Math.floor(Math.random() * 3000); roundEnd = Date.now() + S.delay + 4200; }
+  if (S.game === "math") { S.q = makeQ(); roundEnd = Date.now() + 10500; }
+  if (S.game === "rally") { S.grid = Object.keys(S.players); cars = {}; rallyDoneAt = 0; }
+  broadcast();
+}
+function endRound(){
+  const ids = Object.keys(S.players);
+  if (S.game === "tap") {
+    const ok = ids.filter(id => num(ans[id]) > 0).sort((a, b) => ans[a] - ans[b]);
+    award(ok);
+    for (const id of ids) S.last[id] = id in ans ? (ans[id] === -1 ? "early" : ans[id] == null ? "—" : ans[id] + " ms") : "—";
+  }
+  if (S.game === "math") {
+    const ok = ids.filter(id => ans[id] && ans[id].ok && ans[id].ms != null).sort((a, b) => ans[a].ms - ans[b].ms);
+    award(ok);
+    for (const id of ids) S.last[id] = ans[id] ? (ans[id].ok ? (ans[id].ms / 1000).toFixed(2) + " s" : "wrong") : "—";
+  }
+  if (S.game === "rally") {
+    const fin = ids.filter(id => cars[id] && cars[id][4] != null).sort((a, b) => cars[a][4] - cars[b][4]);
+    award(fin);
+    S.order = fin.concat(ids.filter(id => !fin.includes(id)));
+    for (const id of ids) S.last[id] = cars[id] && cars[id][4] != null ? fmt(cars[id][4]) : "DNF";
+  }
+  S.phase = S.round >= S.total ? "done" : "between";
+  broadcast();
+  if (S.phase === "between") nextTimer = setTimeout(() => { if (isHost && S.phase === "between") nextRound(); }, S.game === "math" ? 2800 : 2500);
+}
+setInterval(() => {
+  if (!isHost || !S || S.phase !== "play") return;
+  const ids = Object.keys(S.players);
+  if (S.game === "tap" || S.game === "math") { if (ids.every(id => id in ans) || Date.now() > roundEnd) endRound(); }
+  if (S.game === "rally") {
+    const grid = S.grid.filter(id => S.players[id]);
+    if (grid.length && grid.every(id => cars[id] && cars[id][4] != null)) { if (!rallyDoneAt) rallyDoneAt = Date.now(); if (Date.now() - rallyDoneAt > 2500) endRound(); }
+  }
+}, 150);
+setInterval(() => { if (isHost && S && S.game === "rally" && S.phase === "play") { const m = { t: "C", c: cars }; for (const c of conns.values()) if (c.open) { try { c.send(m); } catch(e){} } } }, 80);
+
+function makeQ(){
+  const r = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const op = ["+", "−", "×"][r(0, 2)]; let a, b, v;
+  if (op === "+") { a = r(12, 89); b = r(12, 89); v = a + b; }
+  else if (op === "−") { a = r(30, 99); b = r(5, a - 5); v = a - b; }
+  else { a = r(3, 12); b = r(3, 12); v = a * b; }
+  const set = new Set([v]);
+  while (set.size < 4) { const d = v + (op === "×" ? r(-3, 3) * (Math.random() < .5 ? a : 1) : r(-12, 12)); if (d >= 0 && d !== v) set.add(d); }
+  const ch = [...set].sort(() => Math.random() - .5);
+  return { text: `${a} ${op} ${b}`, ch, ans: v };
+}
+
+/* ================= everyone: react to state ================= */
+let localRid = null;
+function onState(){
+  if (!S) return;
+  if (S.phase === "play" && S.rid !== localRid) {
+    localRid = S.rid;
+    if (S.game === "tap") beginTap();
+    if (S.game === "math") beginMath();
+    if (S.game === "rally") startLocalRace();
+  }
+  if (S.game === "math" && S.phase === "between") revealMath();
+  if (S.game === "tap" && S.phase === "between") revealTap();
+  render();
+}
+function resetLocal(){ localRid = null; R = null; tapState = null; mathState = null; cars = {}; clearTimeout(tapTimer); }
+
+function listItem(rank, id, right){
+  const li = document.createElement("li"); if (id === ME.id) li.className = "me";
+  const a = document.createElement("span"); a.className = "pos"; a.textContent = rank;
+  const b = document.createElement("span"); b.className = "cdot"; b.style.background = COLORS[(S.cols[id] | 0) % 8];
+  const c = document.createElement("span"); c.className = "nm"; c.textContent = (S.names[id] || "Player") + (id === ME.id ? " (you)" : "") + (id === "H" ? " · host" : "");
+  const d = document.createElement("span"); d.className = "tm"; d.textContent = right;
+  li.append(a, b, c, d); return li;
+}
+function render(){
+  if (!S) return;
+  const ids = Object.keys(S.players);
+  if (S.phase === "lobby") show("lobby");
+  else if (S.phase === "done") show("results");
+  else show(S.game);
+  // lobby
+  $("lobbyTitle").textContent = isHost ? "Your party" : (S.names.H || "Host") + "'s party";
+  $("lobbyStatus").textContent = "code " + code;
+  $("qrCard").hidden = !isHost; $("pickCard").hidden = !isHost; $("waitCard").hidden = isHost;
+  $("playersLbl").textContent = `Players · ${ids.length}`;
+  const byScore = ids.slice().sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0));
+  $("playerList").replaceChildren(...byScore.map((id, i) => listItem(i + 1, id, (S.scores[id] || 0) + " pts")));
+  if (isHost) {
+    $("games").replaceChildren(...Object.entries(GAMES).map(([k, g]) => { const b = document.createElement("button"); b.className = "game" + (S.game === k ? " sel" : "");
+      b.innerHTML = `<span class="ic"></span><b></b><span></span>`; b.children[0].textContent = g.ic; b.children[1].textContent = g.name; b.children[2].textContent = g.desc;
+      b.onclick = () => { S.game = k; broadcast(); }; return b; }));
+    $("startBtn").textContent = `Start ${GAMES[S.game].name}` + (ids.length < 2 ? " (solo)" : "");
+  } else {
+    $("waitTitle").textContent = "Next up: " + GAMES[S.game].ic + " " + GAMES[S.game].name;
+  }
+  // results
+  if (S.phase === "done") {
+    $("resTitle").textContent = GAMES[S.game].ic + " " + GAMES[S.game].name;
+    const gIds = S.game === "rally" && S.order ? S.order.filter(id => S.names[id]) : Object.keys(S.gs).filter(id => S.names[id]).sort((a, b) => (S.gs[b] || 0) - (S.gs[a] || 0));
+    $("resLbl").textContent = S.game === "rally" ? "Race results" : "This game";
+    $("resList").replaceChildren(...gIds.map((id, i) => listItem(i + 1, id, S.game === "rally" ? (S.last[id] || "—") : (S.gs[id] || 0) + " pts")));
+    const pIds = Object.keys(S.scores).filter(id => S.names[id]).sort((a, b) => (S.scores[b] || 0) - (S.scores[a] || 0));
+    $("partyList").replaceChildren(...pIds.map((id, i) => listItem(i + 1, id, (S.scores[id] || 0) + " pts")));
+    $("resHost").hidden = !isHost; $("resWait").hidden = isHost;
+  }
+  document.querySelectorAll(".hostOnly").forEach(el => el.hidden = !isHost);
+  if (S.game === "math") $("mPts").textContent = S.gs[ME.id] || 0;
+}
+
+/* ================= QR ================= */
+function drawQR(){
+  const url = joinUrl();
+  $("bigCode").textContent = code; $("linkTxt").textContent = url;
+  try { const q = qrcode(0, "M"); q.addData(url); q.make(); $("qr").innerHTML = q.createImgTag(5, 2, "QR code to join party " + code); } catch(e) { $("qr").hidden = true; }
+}
+$("copyBtn").onclick = () => { const url = joinUrl();
+  (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => { $("copyBtn").textContent = "Copied"; setTimeout(() => $("copyBtn").textContent = "Copy link", 1500); })
+    .catch(() => { const r = document.createRange(); r.selectNodeContents($("linkTxt")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }); };
+
+let wake = null;
+async function keepAwake(){ try { if (navigator.wakeLock && !wake) { wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release", () => wake = null); } } catch(e){} }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S) keepAwake(); });
+
+/* ================= TAP RUSH ================= */
+let tapState = null, tapTimer = null;
+function tapShow(cls, big, sub, ms){
+  $("tapPad").className = cls || ""; $("tapBig").hidden = !big; $("tapBig").textContent = big || "";
+  $("tapSub").textContent = sub || ""; $("tapMs").hidden = ms == null; if (ms != null) $("tapMs").textContent = ms;
+}
+function beginTap(){
+  clearTimeout(tapTimer);
+  tapState = { rid: S.rid, goAt: 0, done: false };
+  $("tapRound").textContent = `Round ${S.round} / ${S.total}`;
+  tapShow("wait", "WAIT…", "รอจนเป็นสีเขียว · Don't tap yet");
+  const rid = S.rid;
+  tapTimer = setTimeout(() => {
+    if (!tapState || tapState.rid !== rid || tapState.done) return;
+    tapState.goAt = performance.now(); tapShow("go", "TAP!", "แตะเลย!");
+    tapTimer = setTimeout(() => { if (tapState && tapState.rid === rid && !tapState.done) finishTap(null); }, 3500);
+  }, S.delay);
+}
+function finishTap(ms){
+  tapState.done = true; clearTimeout(tapTimer);
+  if (ms === -1) tapShow("", "Too early!", "False start: 0 points this round");
+  else if (ms == null) tapShow("", "Too slow", "No tap this round");
+  else tapShow("", "", "milliseconds · waiting for the others", ms);
+  send({ t: "tap", rid: tapState.rid, ms });
+}
+function onTapPad(e){
+  e.preventDefault();
+  if (!tapState || tapState.done || !S || S.phase !== "play" || S.rid !== tapState.rid) return;
+  if (!tapState.goAt) { finishTap(-1); return; }
+  finishTap(Math.max(1, Math.round(performance.now() - tapState.goAt)));
+}
+$("tapPad").addEventListener("pointerdown", onTapPad);
+$("tapPad").addEventListener("keydown", e => { if (e.key === " " || e.key === "Enter") onTapPad(e); });
+function revealTap(){
+  clearTimeout(tapTimer);
+  const ids = Object.keys(S.players).filter(id => /ms$/.test(S.last[id] || "")).sort((a, b) => parseInt(S.last[a]) - parseInt(S.last[b]));
+  const mine = S.last[ME.id] || "—";
+  const w = ids[0] ? `${S.names[ids[0]]} wins the round (${S.last[ids[0]]})` : "Nobody tapped in time";
+  tapShow("", ids[0] === ME.id ? "You win! 🏆" : mine === "early" ? "Too early!" : /ms$/.test(mine) ? mine : "Missed", w + " · next round soon…");
+}
+
+/* ================= QUICK MATH ================= */
+let mathState = null, mathRaf = 0;
+function beginMath(){
+  mathState = { rid: S.rid, t0: performance.now(), pick: null };
+  $("mRound").textContent = `${S.round}/${S.total}`;
+  $("mQ").textContent = S.q.text + " = ?";
+  $("mMsg").textContent = "";
+  $("mChoices").replaceChildren(...S.q.ch.map(v => { const b = document.createElement("button"); b.textContent = v;
+    b.onclick = () => { if (!mathState || mathState.pick != null || S.phase !== "play") return;
+      mathState.pick = v; const ms = Math.round(performance.now() - mathState.t0);
+      [...$("mChoices").children].forEach(x => { if (x !== b) x.classList.add("dim"); });
+      $("mMsg").textContent = "Locked in · " + (ms / 1000).toFixed(2) + " s";
+      send({ t: "ans", rid: mathState.rid, ms, pick: v }); };
+    return b; }));
+  cancelAnimationFrame(mathRaf);
+  const tick = () => { if (!mathState || S.game !== "math") return; const f = Math.max(0, 1 - (performance.now() - mathState.t0) / 10000); $("mBar").style.transform = `scaleX(${f})`; if (f > 0 && S.phase === "play") mathRaf = requestAnimationFrame(tick); };
+  tick();
+}
+function revealMath(){
+  if (!S.q) return;
+  [...$("mChoices").children].forEach(x => { const v = +x.textContent; x.classList.toggle("right", v === S.q.ans); x.classList.toggle("dim", v !== S.q.ans); x.disabled = true; });
+  const mine = mathState ? mathState.pick : null;
+  $("mMsg").textContent = mine == null ? `Time's up! Answer: ${S.q.ans}` : mine === S.q.ans ? "Correct! ✓ " + (S.last[ME.id] || "") : `Wrong · answer is ${S.q.ans}`;
+}
+
+/* ================= RALLY ================= */
+const LAPS = 3, ROAD = 150;
+const CTRL = [[300,1150],[260,700],[380,380],[700,260],[1000,380],[1150,620],[1380,420],[1720,360],[1900,620],[1700,860],[1880,1150],[1560,1380],[1180,1240],[900,1420],[560,1400]];
+const PTS = (() => { const out = [], n = CTRL.length, steps = 28;
+  for (let i = 0; i < n; i++) { const p0 = CTRL[(i - 1 + n) % n], p1 = CTRL[i], p2 = CTRL[(i + 1) % n], p3 = CTRL[(i + 2) % n];
+    for (let s = 0; s < steps; s++) { const t = s / steps, t2 = t * t, t3 = t2 * t;
+      const f = (a, b, c, d) => 0.5 * (2*b + (-a + c)*t + (2*a - 5*b + 4*c - d)*t2 + (-a + 3*b - 3*c + d)*t3);
+      out.push([f(p0[0],p1[0],p2[0],p3[0]), f(p0[1],p1[1],p2[1],p3[1])]); } }
+  return out; })();
+const N = PTS.length;
+const roadPath = new Path2D(); PTS.forEach((p, i) => i ? roadPath.lineTo(p[0], p[1]) : roadPath.moveTo(p[0], p[1])); roadPath.closePath();
+function nearest(x, y){ let bi = 0, bd = Infinity; for (let i = 0; i < N; i++) { const dx = PTS[i][0] - x, dy = PTS[i][1] - y, d = dx*dx + dy*dy; if (d < bd) { bd = d; bi = i; } } return { i: bi, d: Math.sqrt(bd) }; }
+const START_A = Math.atan2(PTS[1][1] - PTS[0][1], PTS[1][0] - PTS[0][0]);
+const TREES = (() => { let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647; const t = [];
+  while (t.length < 140) { const x = r() * 2300 - 50, y = r() * 1800 - 50; if (nearest(x, y).d > ROAD * 0.9) t.push([x, y, 16 + r() * 18]); } return t; })();
+let R = null;
+const ghosts = new Map();
+const keys = { l: false, r: false, b: false };
+
+function startLocalRace(){
+  const slot = Math.max(0, (S.grid || []).indexOf(ME.id));
+  const back = 70 + Math.floor(slot / 2) * 60, side = (slot % 2 ? 1 : -1) * 34;
+  const bx = Math.cos(START_A), by = Math.sin(START_A);
+  R = { rid: S.rid, x: PTS[0][0] - bx * back - by * side, y: PTS[0][1] - by * back + bx * side, a: START_A, v: 0, done: 0, half: false, idx: N - 1, goAt: performance.now() + 3200, fin: null, sent: 0 };
+  ghosts.clear(); $("finishMsg").hidden = true;
+}
+function progressOf(done, idx, half){ return done + ((done === 0 && !half && idx > N * 0.5) ? idx / N - 1 : idx / N); }
+function stepCar(dt){
+  if (!R || !S || S.game !== "rally" || S.phase !== "play") return;
+  const now = performance.now(), racing = now >= R.goAt && R.fin == null;
+  const nr = nearest(R.x, R.y), onRoad = nr.d < ROAD / 2, maxV = onRoad ? 560 : 210;
+  if (racing) {
+    const steer = (keys.r ? 1 : 0) - (keys.l ? 1 : 0);
+    if (keys.b) R.v = Math.max(0, R.v - 800 * dt); else if (R.v < maxV) R.v = Math.min(maxV, R.v + 300 * dt);
+    if (R.v > maxV) R.v = Math.max(maxV, R.v - 700 * dt);
+    R.a += steer * 2.5 * dt * Math.min(1, R.v / 180);
+  } else R.v = Math.max(0, R.v - 400 * dt);
+  R.x = Math.min(2300, Math.max(-100, R.x + Math.cos(R.a) * R.v * dt));
+  R.y = Math.min(1800, Math.max(-100, R.y + Math.sin(R.a) * R.v * dt));
+  const i = nr.i;
+  if (i > N * 0.4 && i < N * 0.6) R.half = true;
+  if (R.idx > N * 0.85 && i < N * 0.15 && R.half) { R.done++; R.half = false;
+    if (R.done >= LAPS && R.fin == null) { R.fin = Math.round(now - R.goAt); R.sent = 0; } }
+  R.idx = i;
+  if (now - R.sent > 80) { R.sent = now; send({ t: "car", rid: R.rid, x: Math.round(R.x), y: Math.round(R.y), a: +R.a.toFixed(2), prog: +progressOf(R.done, i, R.half).toFixed(3), fin: R.fin }); }
+}
+function rallyStandings(){
+  if (!R || !S) return [];
+  const rows = Object.keys(S.players).map(id => {
+    if (id === ME.id) return { id, prog: progressOf(R.done, R.idx, R.half), fin: R.fin };
+    const c = cars[id]; return c ? { id, prog: c[3], fin: c[4] } : { id, prog: -1, fin: null };
+  });
+  return rows.sort((a, b) => (a.fin != null && b.fin != null) ? a.fin - b.fin : a.fin != null ? -1 : b.fin != null ? 1 : b.prog - a.prog);
+}
+
+const cv = $("cv"), ctx = cv.getContext("2d");
+let W = 0, Hh = 0, DPR = 1;
+function resize(){ DPR = Math.min(2, window.devicePixelRatio || 1); W = cv.clientWidth; Hh = cv.clientHeight; cv.width = W * DPR; cv.height = Hh * DPR; }
+addEventListener("resize", resize);
+function rr(x, y, w, h, r){ ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); }
+function drawCar(x, y, a, col){
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  ctx.fillStyle = "rgba(0,0,0,.28)"; rr(-17, -9, 38, 22, 6); ctx.fill();
+  ctx.fillStyle = col; rr(-20, -11, 40, 22, 7); ctx.fill();
+  ctx.fillStyle = "#141821"; rr(2, -8, 10, 16, 3); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.fillRect(-14, -2, 12, 4);
+  ctx.restore();
+}
+function drawWorld(){
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = "#5fae4b"; ctx.fillRect(0, 0, W, Hh);
+  const zoom = Math.max(0.6, Math.min(1.1, Math.min(W, Hh) / 600));
+  ctx.save(); ctx.translate(W / 2, Hh * 0.64); ctx.scale(zoom, zoom); ctx.rotate(-Math.PI / 2 - R.a); ctx.translate(-R.x, -R.y);
+  ctx.fillStyle = "#58a445"; for (let x = -200; x < 2400; x += 120) ctx.fillRect(x, -200, 60, 2200);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.strokeStyle = "#f5f3ea"; ctx.lineWidth = ROAD + 22; ctx.stroke(roadPath);
+  ctx.setLineDash([26, 26]); ctx.strokeStyle = "#e8423a"; ctx.stroke(roadPath); ctx.setLineDash([]);
+  ctx.strokeStyle = "#3d4250"; ctx.lineWidth = ROAD; ctx.stroke(roadPath);
+  ctx.setLineDash([30, 34]); ctx.strokeStyle = "rgba(245,243,234,.55)"; ctx.lineWidth = 4; ctx.stroke(roadPath); ctx.setLineDash([]);
+  ctx.save(); ctx.translate(PTS[0][0], PTS[0][1]); ctx.rotate(START_A);
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 10; c++) { ctx.fillStyle = (r + c) % 2 ? "#141821" : "#f5f3ea"; ctx.fillRect(-12 + r * 12, -ROAD/2 + c * ROAD/10, 12, ROAD/10); }
+  ctx.restore();
+  for (const t of TREES) { ctx.fillStyle = "rgba(0,0,0,.18)"; ctx.beginPath(); ctx.arc(t[0] + 6, t[1] + 6, t[2], 0, 7); ctx.fill();
+    ctx.fillStyle = "#2f7a3a"; ctx.beginPath(); ctx.arc(t[0], t[1], t[2], 0, 7); ctx.fill();
+    ctx.fillStyle = "#3f9548"; ctx.beginPath(); ctx.arc(t[0] - t[2]*.25, t[1] - t[2]*.25, t[2]*.55, 0, 7); ctx.fill(); }
+  const labels = [];
+  for (const id in cars) {
+    if (id === ME.id || !S.players[id]) continue;
+    const c = cars[id]; let g = ghosts.get(id);
+    if (!g) { g = { x: c[0], y: c[1], a: c[2] }; ghosts.set(id, g); }
+    g.x += (c[0] - g.x) * 0.25; g.y += (c[1] - g.y) * 0.25;
+    let da = c[2] - g.a; da = Math.atan2(Math.sin(da), Math.cos(da)); g.a += da * 0.25;
+    drawCar(g.x, g.y, g.a, COLORS[(S.cols[id] | 0) % 8]);
+    const pt = new DOMPoint(g.x, g.y).matrixTransform(ctx.getTransform()); labels.push([pt.x / DPR, pt.y / DPR, S.names[id] || ""]);
+  }
+  drawCar(R.x, R.y, R.a, COLORS[ME.col]);
+  ctx.restore();
+  ctx.font = "600 13px 'Noto Sans Thai', system-ui, sans-serif"; ctx.textAlign = "center";
+  for (const [x, y, n] of labels) { const w = ctx.measureText(n).width + 12; ctx.fillStyle = "rgba(20,24,33,.75)"; rr(x - w/2, y - 44, w, 20, 6); ctx.fill(); ctx.fillStyle = "#f5f3ea"; ctx.fillText(n, x, y - 29); }
+  // minimap
+  const s = 0.062, ox = W - 2300 * s - 12, oy = 70;
+  ctx.save(); ctx.translate(ox, oy); ctx.scale(s, s);
+  ctx.fillStyle = "rgba(20,24,33,.55)"; rr(-60, -60, 2420, 1920, 160); ctx.fill();
+  ctx.strokeStyle = "rgba(245,243,234,.8)"; ctx.lineWidth = 60; ctx.stroke(roadPath);
+  for (const id in cars) if (id !== ME.id && S.players[id]) { ctx.fillStyle = COLORS[(S.cols[id] | 0) % 8]; ctx.beginPath(); ctx.arc(cars[id][0], cars[id][1], 70, 0, 7); ctx.fill(); }
+  ctx.fillStyle = COLORS[ME.col]; ctx.strokeStyle = "#141821"; ctx.lineWidth = 30; ctx.beginPath(); ctx.arc(R.x, R.y, 90, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+let last = performance.now(), hudT = 0;
+function frame(t){
+  const dt = Math.min(0.05, (t - last) / 1000); last = t;
+  stepCar(dt);
+  if (screen === "rally" && R) {
+    drawWorld();
+    const left = R.goAt - t, c = $("count");
+    if (left > 0) { c.hidden = false; c.textContent = Math.ceil(left / 1000); } else if (left > -700) { c.hidden = false; c.textContent = "GO!"; } else c.hidden = true;
+    if (t - hudT > 100) { hudT = t;
+      $("hLap").textContent = Math.min(R.done + 1, LAPS) + "/" + LAPS;
+      const st = rallyStandings(), pos = st.findIndex(s => s.id === ME.id) + 1;
+      $("hPos").textContent = (pos || 1) + "/" + Math.max(1, st.length);
+      $("hTime").textContent = R.fin != null ? fmt(R.fin) : left > 0 ? "0:00.0" : fmt(t - R.goAt);
+      if (R.fin != null) { $("finishMsg").hidden = false; $("finishMsg").textContent = `Finished P${pos} · ${fmt(R.fin)}`; }
+    }
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+function bindPad(el, k){
+  const on = e => { e.preventDefault(); keys[k] = true; el.classList.add("on"); try { el.setPointerCapture(e.pointerId); } catch(_){} };
+  const off = () => { keys[k] = false; el.classList.remove("on"); };
+  el.addEventListener("pointerdown", on); el.addEventListener("pointerup", off); el.addEventListener("pointercancel", off); el.addEventListener("lostpointercapture", off);
+  el.addEventListener("contextmenu", e => e.preventDefault());
+}
+bindPad($("padL"), "l"); bindPad($("padR"), "r"); bindPad($("padB"), "b");
+const KMAP = { ArrowLeft: "l", a: "l", A: "l", ArrowRight: "r", d: "r", D: "r", ArrowDown: "b", s: "b", S: "b" };
+addEventListener("keydown", e => { if (document.activeElement && document.activeElement.tagName === "INPUT") return; const k = KMAP[e.key]; if (k && screen === "rally") { keys[k] = true; e.preventDefault(); } });
+addEventListener("keyup", e => { const k = KMAP[e.key]; if (k) keys[k] = false; });
+
+/* ================= buttons ================= */
+$("hostBtn").onclick = hostParty;
+$("joinBtn").onclick = () => joinParty($("codeIn").value);
+$("codeIn").addEventListener("keydown", e => { if (e.key === "Enter") joinParty($("codeIn").value); });
+$("startBtn").onclick = () => { if (isHost) startGame(S.game); };
+$("againBtn").onclick = () => { if (isHost) startGame(S.game); };
+$("lobbyBtn").onclick = () => { if (isHost) { S.phase = "lobby"; broadcast(); } };
+$("endRaceBtn").onclick = () => { if (isHost && S.phase === "play") endRound(); };
+$("leaveBtn").onclick = leave;
+
+// arriving from a QR code
+const joinCode = new URLSearchParams(location.search).get("join");
+if (joinCode) {
+  $("codeIn").value = joinCode.toUpperCase().slice(0, 4);
+  $("joinBtn").textContent = "Join party";
+  $("homeNote").textContent = "Type your name and tap Join party. · ใส่ชื่อแล้วกด Join party";
+  $("nameIn").focus();
+}
+if (typeof Peer === "undefined") homeError("Couldn't load the game engine. Check your internet and reload.");
+</script>
+</body>
+</html>
