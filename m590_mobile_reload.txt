@@ -1,0 +1,27 @@
+====================================
+  M590 FAST RELOAD - Free Fire Mobile
+====================================
+
+[SENSITIVITY CONFIG]
+General       : 100
+Red Dot       : 85
+2x Scope      : 80
+4x Scope      : 70
+AWM Scope     : 60
+
+[HUD LAYOUT - แนะนำ]
+- ปุ่ม FIRE  : ขวาล่าง ใหญ่สุด
+- ปุ่ม RELOAD: ซ้ายบน ใกล้มือซ้าย
+- ปุ่ม AIM  : ซ้ายกลาง
+
+[เทคนิค Fast Reload M590]
+1. ยิงกระสุนสุดท้าย
+2. นิ้วซ้ายกด RELOAD ทันที (อย่ารอ animation จบ)
+3. ระหว่าง reload ให้ขยับตำแหน่งหลบ
+4. พอ reload เสร็จ AIM + FIRE ทันที
+
+[TIMING]
+- M590 reload time: ~2.3 วินาที
+- กด reload หลังยิงเลย = ได้เปรียบ 0.5 วิ
+
+====================================
